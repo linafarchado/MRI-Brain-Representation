@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -6,12 +5,20 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 import segmentation_models_pytorch
-from utils import filter_black_images_from_dataset
-from visualize import visualize_segmentation
-from dataloader import CustomDataset
 from trainAndTest import train, evaluate, test
-from EarlyStopping import EarlyStopping
 from torchvision import transforms
+
+import sys
+import os
+
+# Ajoutez le chemin du dossier parent au sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
+from Dataloader import CustomDatasetWithLabels
+from Utils import filter_black_images_from_dataset, EarlyStopping
+from Visualize import visualize_segmentation
 
 class UNet(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -32,7 +39,7 @@ class Pipeline():
     def __init__(self, model, dataset, outputs, batch_size=8, start_epochs=0, total_epochs=50):
         self.outputs = outputs
         os.makedirs(self.outputs, exist_ok=True)
-        self.dataset_before_filter = CustomDataset(dataset)
+        self.dataset_before_filter = CustomDatasetWithLabels(dataset)
         self.dataset = filter_black_images_from_dataset(self.dataset_before_filter)
         #self.num_classes = self.dataset_before_filter.get_num_classes()
         self.train_size = int(0.7 * len(self.dataset))
@@ -108,13 +115,30 @@ class Pipeline():
                 test_pred = torch.argmax(test_output, dim=1).squeeze().cpu().numpy()
             visualize_segmentation(test_image.cpu().numpy(), test_label.numpy(), test_pred, f'seg_{random_idx+1}', folder='segmentation')
     
-def main(dataset):
+
+def main(dataset, outputs, train=True, load=False, total_epochs=50, start_epochs=0, batch_size=8):
     # 4 labels, classes
     model = UNet(1, 4)
-    pipeline = Pipeline(model, dataset=dataset, outputs='segmentation', total_epochs=1)
-    pipeline.train()
+    
+    if load:
+        model.load_state_dict(torch.load(outputs + ".pth"))
+    
+    pipeline = Pipeline(model, dataset=dataset, outputs=outputs, total_epochs=20, start_epochs=0, batch_size=8)
+    
+    if train==True:
+        pipeline.train()
     pipeline.test()
 
 if __name__ == '__main__':
     dataset = "../Training/"
-    main(dataset)
+    outputs = "segmentation"
+    # 4 labels, classes
+    main(dataset, outputs, train=False, load=False, total_epochs=50, start_epochs=0, batch_size=8)
+"""
+    model = UNet(1, 4)
+
+    dataset = "../Training/"
+    pipeline = Pipeline(model, dataset=dataset, outputs='segmentation', total_epochs=50)
+
+    #pipeline.train()
+    pipeline.test()"""

@@ -4,9 +4,17 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset
-from utils import pad_image
 
-class CustomDataset(Dataset):
+import sys
+
+# Ajoutez le chemin du dossier parent au sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
+from Utils import pad_image
+
+class CustomDatasetWithLabels(Dataset):
     def __init__(self, folder):
         self.folder = folder
         self.files_list = sorted([filename for filename in os.listdir(folder) if 'T2' in filename])

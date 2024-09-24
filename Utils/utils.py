@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 
-
 def filter_black_images_from_dataset(dataset):
     filtered_dataset = []
     for item in dataset:
