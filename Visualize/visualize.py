@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 def visualize_interpolation_models(cpt, image1, image2, interpolated_image8, interpolated_image16, interpolated_image32):
     # Convert tensors to numpy arrays for visualization
@@ -129,8 +130,13 @@ def visualize_image_without_label(image, folder, idx):
     plt.show()
 
 
-def visualize_interpolation_even(center_idx, dataset, total_mse, alpha, interpolated_image, model_name, save_dir='InterpolatedEvenImagesPlot'):
+def visualize_interpolation_even(center_idx, dataset, mse, alpha, interpolated_image, model_name, save_dir='InterpolatedEvenImagesPlot'):
     os.makedirs(save_dir, exist_ok=True)
+
+    mse_loss = torch.nn.MSELoss()
+    mse_i = mse_loss(interpolated_image, dataset[center_idx])
+    mse_i_plus_2 = mse_loss(interpolated_image, dataset[center_idx+2])
+    mse_i_moins_2 = mse_loss(interpolated_image, dataset[center_idx-2])
 
     # Déterminer les indices à visualiser
     indices = [center_idx-2, center_idx-1, center_idx, center_idx+1, center_idx+2]
@@ -148,15 +154,15 @@ def visualize_interpolation_even(center_idx, dataset, total_mse, alpha, interpol
     
     # Top row: Images i-2, i, i+2
     axes[0, 0].imshow(images_np[0], cmap='gray')
-    axes[0, 0].set_title(f'Image {indices[0]}')
+    axes[0, 0].set_title(f'Image {indices[0]}, MSE: {mse_i_moins_2:.4f}')
     axes[0, 0].axis('off')
     
     axes[0, 1].imshow(images_np[2], cmap='gray')
-    axes[0, 1].set_title(f'Image {indices[2]}')
+    axes[0, 1].set_title(f'Image {indices[2]}, MSE: {mse_i:.4f}')
     axes[0, 1].axis('off')
     
     axes[0, 2].imshow(images_np[4], cmap='gray')
-    axes[0, 2].set_title(f'Image {indices[4]}')
+    axes[0, 2].set_title(f'Image {indices[4]}, MSE: {mse_i_plus_2:.4f}')
     axes[0, 2].axis('off')
 
     # Bottom row: Image i-1, Interpolated, i+1
@@ -172,11 +178,8 @@ def visualize_interpolation_even(center_idx, dataset, total_mse, alpha, interpol
     axes[1, 2].set_title(f'Image {indices[3]}, alpha: {1 - alpha}')
     axes[1, 2].axis('off')
 
-    # Add MSE text
-    plt.figtext(0.5, 0.01, f'Total MSE: {total_mse:.6f}', ha='center', va='bottom', fontsize=12, bbox=dict(facecolor='white', alpha=0.8, edgecolor='black'))
 
     plt.tight_layout()
-    plt.subplots_adjust(bottom=0.1)
 
     # Save the plot to a file
     save_path = os.path.join(save_dir, f'interpolated_images_{center_idx}.png')

@@ -82,15 +82,12 @@ def main(folder, outputs, checkpoint):
         cpt += 1
         visualize_interpolation(cpt, image1, image2, interpolated_image, model_name='ConvAutoencoder')
 
-def evaluate_interpolation(model, dataset, image_interpolator):
+def evaluate_interpolation(model, dataset, image_interpolator, outputs):
     mse_loss = torch.nn.MSELoss()
     total_mse = 0
     count = 0
 
     for i in range(2, len(dataset) - 2, 2):
-        print(f"Processing image {i} and {i+2}...\n")
-        print(f"Patient index: {dataset.get_patient_idx(i)} and {dataset.get_patient_idx(i+2)}")
-
         if dataset.get_patient_idx(i) == dataset.get_patient_idx(i+2):
             image1 = dataset[i]
             image2 = dataset[i + 2]
@@ -114,13 +111,19 @@ def evaluate_interpolation(model, dataset, image_interpolator):
             total_mse += mse.item()
             count += 1
 
+            if interpolated_image.dim() == 4:
+                interpolated_image = interpolated_image.squeeze(0)
+            interpolated_image_np = interpolated_image.permute(1, 2, 0).detach().cpu().numpy()
+
+            save_image_nifti(interpolated_image_np, f'interpolated_{i}', outputs)
+
             # Visualisation
-            visualize_interpolation_even(i+1, dataset, total_mse, alpha, interpolated_image, model_name='ConvAutoencoder')
+            #visualize_interpolation_even(i+1, dataset, mse, alpha, interpolated_image, model_name='ConvAutoencoder')
 
     avg_mse = total_mse / count if count > 0 else 0
     return avg_mse
 
-def main_even_images(folder, checkpoint):
+def main_even_images(folder, checkpoint, outputs):
     model = ConvAutoencoder(out_channels=32)
     model.load_state_dict(torch.load(checkpoint))
     model.eval()
@@ -132,9 +135,9 @@ def main_even_images(folder, checkpoint):
     val_dataset = CustomDataset(validation_data_folder)
 
     # Évaluer l'interpolation
-    avg_mse = evaluate_interpolation(model, val_dataset, image_interpolator)
+    avg_mse = evaluate_interpolation(model, val_dataset, image_interpolator, outputs)
     print(f"Average MSE for interpolation: {avg_mse}")
     
 if __name__ == "__main__":
     #main(folder="../Training", outputs="TestImages", checkpoint="CNN32.pth")
-    main_even_images(folder="../Training", checkpoint="CNN32.pth")
+    main_even_images(folder="../Training", checkpoint="CNN32.pth", outputs="InterpolatedEvenImages")

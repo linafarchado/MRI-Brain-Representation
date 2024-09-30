@@ -40,10 +40,6 @@ class CustomDataset(Dataset):
                         self.loaded_images.append(tensor_image)
                         self.image_patient_mapping.append((idx_patient, len(self.loaded_images) - 1))
 
-        print(f"Number of images: {len(self.loaded_images)}")
-        print(f"Number of patients: {len(self.image_patient_mapping)}")
-        print(f"patient indexes: {self.image_patient_mapping}")
-    
     def normalize(self):
         self.lst_patient_mu = []
         self.lst_patient_sigma = []
