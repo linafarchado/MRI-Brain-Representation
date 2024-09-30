@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 import segmentation_models_pytorch
 from trainAndTest import train, evaluate, test
 from torchvision import transforms
+import matplotlib.pyplot as plt
 
 import sys
 import os
@@ -16,7 +17,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from Dataloader import CustomDatasetWithLabels
+from Dataloader import CustomDatasetWithLabels, CustomDataset
 from Utils import filter_black_images_from_dataset, EarlyStopping
 from Visualize import visualize_segmentation
 
@@ -36,19 +37,34 @@ class UNet(nn.Module):
         return self.model(x)
 
 class Pipeline():
-    def __init__(self, model, dataset, outputs, batch_size=8, start_epochs=0, total_epochs=50):
+    def __init__(self, model, dataset, outputs, load, batch_size=8, start_epochs=0, total_epochs=50, has_labels=True):
         self.outputs = outputs
         os.makedirs(self.outputs, exist_ok=True)
-        self.dataset_before_filter = CustomDatasetWithLabels(dataset)
-        self.dataset = filter_black_images_from_dataset(self.dataset_before_filter)
-        #self.num_classes = self.dataset_before_filter.get_num_classes()
-        self.train_size = int(0.7 * len(self.dataset))
-        self.val_size = int(0.15 * len(self.dataset))
-        self.test_size = len(self.dataset) - self.train_size - self.val_size
-        self.train_dataset, self.val_dataset, self.test_dataset = torch.utils.data.random_split(self.dataset, [self.train_size, self.val_size, self.test_size])
-        self.train_loader = DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True)
-        self.val_loader = DataLoader(self.val_dataset, batch_size=batch_size)
-        self.test_loader = DataLoader(self.test_dataset, batch_size=batch_size)
+        self.has_labels = has_labels
+        if len(load) > 0:
+            self.load = load
+        else:
+            self.load = outputs
+
+        if self.has_labels:
+            self.dataset_before_filter = CustomDatasetWithLabels(dataset)
+            self.dataset = filter_black_images_from_dataset(self.dataset_before_filter)
+            #self.num_classes = self.dataset_before_filter.get_num_classes()
+            self.train_size = int(0.7 * len(self.dataset))
+            self.val_size = int(0.15 * len(self.dataset))
+            self.test_size = len(self.dataset) - self.train_size - self.val_size
+            self.train_dataset, self.val_dataset, self.test_dataset = torch.utils.data.random_split(self.dataset, [self.train_size, self.val_size, self.test_size])
+            self.train_loader = DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True)
+            self.val_loader = DataLoader(self.val_dataset, batch_size=batch_size)
+            self.test_loader = DataLoader(self.test_dataset, batch_size=batch_size)
+        
+        else:
+            self.dataset = CustomDataset(dataset)
+            self.dataset = filter_black_images_from_dataset(self.dataset)
+            self.train_loader = None
+            self.val_loader = None
+            self.test_loader = DataLoader(self.dataset, batch_size=batch_size)
+        
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = model
         self.criterion = nn.CrossEntropyLoss()
@@ -97,48 +113,80 @@ class Pipeline():
         torch.save(self.model.state_dict(), f'{self.outputs}.pth')
 
     def test(self):
-        # Test the model
-        self.model.load_state_dict(torch.load(f'{self.outputs}.pth'))
-        preds, labels = test(self.model, self.test_loader, self.device)
+        self.model.load_state_dict(torch.load(f'{self.load}.pth'))
+        if self.has_labels:
+            # Test the model
+            preds, labels = test(self.model, self.test_loader, self.device)
 
-        # Calculate accuracy
-        accuracy = np.mean(preds == labels)
-        print(f'Accuracy: {accuracy:.4f}')
+            # Calculate accuracy
+            accuracy = np.mean(preds == labels)
+            print(f'Accuracy: {accuracy:.4f}')
 
-        # Visualize 50 random samples
-        for i in range(50):
-            random_idx = np.random.randint(len(self.test_dataset))
-            test_image, test_label = self.test_dataset[random_idx]
-            test_image = test_image.unsqueeze(0).to(self.device)
-            with torch.no_grad():
-                test_output = self.model(test_image)
-                test_pred = torch.argmax(test_output, dim=1).squeeze().cpu().numpy()
-            visualize_segmentation(test_image.cpu().numpy(), test_label.numpy(), test_pred, f'seg_{random_idx+1}', folder='segmentation')
+            # Visualize 50 random samples
+            for i in range(50):
+                random_idx = np.random.randint(len(self.test_dataset))
+                test_image, test_label = self.test_dataset[random_idx]
+                test_image = test_image.unsqueeze(0).to(self.device)
+                with torch.no_grad():
+                    test_output = self.model(test_image)
+                    test_pred = torch.argmax(test_output, dim=1).squeeze().cpu().numpy()
+                visualize_segmentation(test_image.cpu().numpy(), test_label.numpy(), test_pred, f'seg_{random_idx+1}', folder='segmentation')
+        else:
+            self.visualize_predictions()
     
+    def inference(self):
+        self.model.eval()
+        predictions = []
+        images = []
+        
+        with torch.no_grad():
+            for batch in self.test_loader:
+                batch = batch.to(self.device)
+                outputs = self.model(batch)
+                preds = torch.argmax(outputs, dim=1)
+                predictions.extend(preds.cpu().numpy())
+                images.extend(batch.cpu().numpy())
+        
+        return images, predictions
 
-def main(dataset, outputs, train=True, load=False, total_epochs=50, start_epochs=0, batch_size=8):
+    def visualize_predictions(self, num_samples=100):
+        images, predictions = self.inference()
+        
+        for i in range(min(num_samples, len(images))):
+            image = images[i]
+            pred = predictions[i]
+            
+            plt.figure(figsize=(10, 5))
+            plt.subplot(1, 2, 1)
+            plt.imshow(image.squeeze(), cmap='gray')
+            plt.title('Original Image')
+            plt.axis('off')
+            
+            plt.subplot(1, 2, 2)
+            plt.imshow(pred, cmap='viridis')
+            plt.title('Predicted Segmentation')
+            plt.axis('off')
+            
+            plt.savefig(os.path.join(self.outputs, f'prediction_{i+1}.png'))
+            plt.close()
+
+def main(dataset, outputs, train=True, load="", total_epochs=50, start_epochs=0, batch_size=8, has_labels=True):
     # 4 labels, classes
     model = UNet(1, 4)
     
-    if load:
-        model.load_state_dict(torch.load(outputs + ".pth"))
+    if len(load) > 0:
+        model.load_state_dict(torch.load(load + ".pth"))
     
-    pipeline = Pipeline(model, dataset=dataset, outputs=outputs, total_epochs=20, start_epochs=0, batch_size=8)
+    pipeline = Pipeline(model, dataset=dataset, outputs=outputs, load=load, total_epochs=20, start_epochs=0, batch_size=8, has_labels=has_labels)
     
     if train==True:
         pipeline.train()
     pipeline.test()
 
 if __name__ == '__main__':
-    dataset = "../Training/"
-    outputs = "segmentation"
+    dataset = "../InterpolatedImages/"
+    outputs = 'segmentationInterpolation'
+    main(dataset, outputs, train=False, load="segmentation", total_epochs=50, start_epochs=0, batch_size=8, has_labels=False)
+
     # 4 labels, classes
-    main(dataset, outputs, train=False, load=False, total_epochs=50, start_epochs=0, batch_size=8)
-"""
-    model = UNet(1, 4)
-
-    dataset = "../Training/"
-    pipeline = Pipeline(model, dataset=dataset, outputs='segmentation', total_epochs=50)
-
-    #pipeline.train()
-    pipeline.test()"""
+    #main(dataset, outputs, load=False, total_epochs=50, start_epochs=0, batch_size=8)

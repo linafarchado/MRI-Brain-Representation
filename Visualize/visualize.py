@@ -44,13 +44,12 @@ def visualize_interpolation_models(cpt, image1, image2, interpolated_image8, int
     plt.show()
 
 # visualize one model
-def visualize_interpolation(cpt, image1, image2, interpolated_image, model_name):
+def visualize_interpolation(cpt, image1, image2, interpolated_image, model_name, save_dir='InterpolatedImagesPlot'):
     # Convert tensors to numpy arrays for visualization
     image1_np = image1.detach().cpu().numpy().squeeze()
     image2_np = image2.detach().cpu().numpy().squeeze()
     interpolated_image_np = interpolated_image.detach().cpu().numpy().squeeze()
 
-    save_dir='InterpolatedImagesPlot'
     os.makedirs(save_dir, exist_ok=True)
 
     # Plot the images
@@ -128,3 +127,59 @@ def visualize_image_without_label(image, folder, idx):
     plt.axis('off')
     plt.savefig(os.path.join(folder, f"image_{idx+1}.png"))
     plt.show()
+
+
+def visualize_interpolation_even(center_idx, dataset, total_mse, alpha, interpolated_image, model_name, save_dir='InterpolatedEvenImagesPlot'):
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Déterminer les indices à visualiser
+    indices = [center_idx-2, center_idx-1, center_idx, center_idx+1, center_idx+2]
+    indices = [max(0, min(idx, len(dataset)-1)) for idx in indices]
+
+    # Récupérer les images
+    images = [dataset[idx].unsqueeze(0) for idx in indices]
+
+    # Convert tensors to numpy arrays for visualization
+    images_np = [img.squeeze().detach().cpu().numpy() for img in images]
+    interpolated_image_np = interpolated_image.squeeze().detach().cpu().numpy()
+
+    # Plot the images
+    fig, axes = plt.subplots(2, 3, figsize=(15, 12))
+    
+    # Top row: Images i-2, i, i+2
+    axes[0, 0].imshow(images_np[0], cmap='gray')
+    axes[0, 0].set_title(f'Image {indices[0]}')
+    axes[0, 0].axis('off')
+    
+    axes[0, 1].imshow(images_np[2], cmap='gray')
+    axes[0, 1].set_title(f'Image {indices[2]}')
+    axes[0, 1].axis('off')
+    
+    axes[0, 2].imshow(images_np[4], cmap='gray')
+    axes[0, 2].set_title(f'Image {indices[4]}')
+    axes[0, 2].axis('off')
+
+    # Bottom row: Image i-1, Interpolated, i+1
+    axes[1, 0].imshow(images_np[1], cmap='gray')
+    axes[1, 0].set_title(f'Image {indices[1]}, alpha: {alpha}')
+    axes[1, 0].axis('off')
+    
+    axes[1, 1].imshow(interpolated_image_np, cmap='gray')
+    axes[1, 1].set_title(f'Interpolated Image ({model_name})')
+    axes[1, 1].axis('off')
+    
+    axes[1, 2].imshow(images_np[3], cmap='gray')
+    axes[1, 2].set_title(f'Image {indices[3]}, alpha: {1 - alpha}')
+    axes[1, 2].axis('off')
+
+    # Add MSE text
+    plt.figtext(0.5, 0.01, f'Total MSE: {total_mse:.6f}', ha='center', va='bottom', fontsize=12, bbox=dict(facecolor='white', alpha=0.8, edgecolor='black'))
+
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.1)
+
+    # Save the plot to a file
+    save_path = os.path.join(save_dir, f'interpolated_images_{center_idx}.png')
+    plt.savefig(save_path)
+    
+    plt.close()

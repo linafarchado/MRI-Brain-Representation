@@ -30,16 +30,24 @@ class CustomDatasetWithLabels(Dataset):
         for idx_patient, filename in enumerate(self.files_list):
             img_path = os.path.join(self.folder, filename)
             img = nib.load(img_path).get_fdata()
-            for it_image in range(img.shape[0]):
-                self.loaded_images.append(torch.tensor(img[:, :, it_image]).unsqueeze(0))
+            if img.shape[2] == 1:
+                # Si la troisième dimension est 1, on squeeze directement
+                self.loaded_images.append(torch.tensor(img.squeeze()).unsqueeze(0))
+            else:
+                for it_image in range(img.shape[0]):
+                    self.loaded_images.append(torch.tensor(img[:, :, it_image]).unsqueeze(0))
                 self.lst_patient_idx.append(idx_patient)
     
     def load_labels(self):
         for filename in self.labels_list:
             label_path = os.path.join(self.folder, filename)
             label = nib.load(label_path).get_fdata()
-            for it_image in range(label.shape[0]):
-                self.loaded_labels.append(torch.tensor(label[:, :, it_image]).unsqueeze(0).long())
+            if label.shape[2] == 1:
+                # Si la troisième dimension est 1, on squeeze directement
+                self.loaded_labels.append(torch.tensor(label.squeeze()).unsqueeze(0))
+            else:
+                for it_image in range(label.shape[0]):
+                    self.loaded_labels.append(torch.tensor(label[:, :, it_image]).unsqueeze(0).long())
     
     def normalize(self):
         self.lst_patient_mu = []

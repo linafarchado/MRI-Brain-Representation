@@ -12,14 +12,14 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from Utils import pad_image
+from Utils import pad_image, filter_black_images_from_dataset
 
 class CustomDataset(Dataset):
     def __init__(self, folder):
         self.folder = folder
         self.files_list = sorted([filename for filename in os.listdir(folder) if 'T2' in filename])
         self.loaded_images = []
-        self.lst_patient_idx = []
+        self.image_patient_mapping = []
         self.load_images()
         self.normalize()
     
@@ -29,11 +29,20 @@ class CustomDataset(Dataset):
             img = nib.load(img_path).get_fdata()
             if img.shape[2] == 1:
                 # Si la troisième dimension est 1, on squeeze directement
-                self.loaded_images.append(torch.tensor(img.squeeze()).unsqueeze(0))
+                tensor_image = torch.tensor(img.squeeze()).unsqueeze(0)
+                if torch.sum(tensor_image) != 0:
+                    self.loaded_images.append(tensor_image)
+                    self.image_patient_mapping.append((idx_patient, len(self.loaded_images) - 1))
             else:
                 for it_image in range(img.shape[0]):
-                    self.loaded_images.append(torch.tensor(img[:, :, it_image]).unsqueeze(0))
-            self.lst_patient_idx.append(idx_patient)
+                    tensor_image = torch.tensor(img[:, :, it_image]).unsqueeze(0)
+                    if torch.sum(tensor_image) != 0:
+                        self.loaded_images.append(tensor_image)
+                        self.image_patient_mapping.append((idx_patient, len(self.loaded_images) - 1))
+
+        print(f"Number of images: {len(self.loaded_images)}")
+        print(f"Number of patients: {len(self.image_patient_mapping)}")
+        print(f"patient indexes: {self.image_patient_mapping}")
     
     def normalize(self):
         self.lst_patient_mu = []
@@ -59,3 +68,9 @@ class CustomDataset(Dataset):
         image = pad_image(image)
 
         return image
+    
+    def get_patient_idx(self, idx):
+        for patient_idx, image_idx in self.image_patient_mapping:
+            if image_idx == idx:
+                return patient_idx
+        return None
