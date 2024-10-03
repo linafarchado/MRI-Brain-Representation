@@ -17,9 +17,10 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from Dataloader import CustomDatasetWithLabels, CustomDataset
-from Utils import filter_black_images_from_dataset, EarlyStopping
-from Visualize import visualize_segmentation
+from Dataloader import CustomDatasetWithLabels, CustomDataset, CustomDatasetWithLabelsFiltered
+from Utils import EarlyStopping
+from Metrics import calculate_dice_per_class
+from Visualize import visualize_segmentation, visualize_segmentation_Dice
 
 class UNet(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -37,40 +38,27 @@ class UNet(nn.Module):
         return self.model(x)
 
 class Pipeline():
-    def __init__(self, model, dataset, outputs, load, batch_size=8, start_epochs=0, total_epochs=50, has_labels=True):
+    def __init__(self, model, dataset, visualize, outputs, load, batch_size=8, start_epochs=0, total_epochs=50, has_labels=True):
         self.outputs = outputs
+        self.visualize = visualize
         os.makedirs(self.outputs, exist_ok=True)
         self.has_labels = has_labels
-        if len(load) > 0:
-            self.load = load
-        else:
-            self.load = outputs
-
-        if self.has_labels:
-            self.dataset_before_filter = CustomDatasetWithLabels(dataset)
-            self.dataset = filter_black_images_from_dataset(self.dataset_before_filter)
-            #self.num_classes = self.dataset_before_filter.get_num_classes()
-            self.train_size = int(0.7 * len(self.dataset))
-            self.val_size = int(0.15 * len(self.dataset))
-            self.test_size = len(self.dataset) - self.train_size - self.val_size
-            self.train_dataset, self.val_dataset, self.test_dataset = torch.utils.data.random_split(self.dataset, [self.train_size, self.val_size, self.test_size])
-            self.train_loader = DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True)
-            self.val_loader = DataLoader(self.val_dataset, batch_size=batch_size)
-            self.test_loader = DataLoader(self.test_dataset, batch_size=batch_size)
-        
-        else:
-            self.dataset = CustomDataset(dataset)
-            self.dataset = filter_black_images_from_dataset(self.dataset)
-            self.train_loader = None
-            self.val_loader = None
-            self.test_loader = DataLoader(self.dataset, batch_size=batch_size)
-        
+        self.load = load if len(load) > 0 else outputs
+        self.dataset = CustomDatasetWithLabelsFiltered(dataset)
+        #self.num_classes = self.dataset_before_filter.get_num_classes()
+        self.train_size = int(0.8 * len(self.dataset))
+        self.val_size = len(self.dataset) - self.train_size
+        self.train_dataset, self.val_dataset = torch.utils.data.random_split(self.dataset, [self.train_size, self.val_size])
+        self.test_dataset = CustomDatasetWithLabelsFiltered(dataset, is_training=False) if self.has_labels else CustomDataset(dataset)
+        self.train_loader = DataLoader(self.train_dataset, batch_size=batch_size, shuffle=True)
+        self.val_loader = DataLoader(self.val_dataset, batch_size=batch_size)
+        self.test_loader = DataLoader(self.test_dataset, batch_size=batch_size)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = model
+        self.model = model.to(self.device)
         self.criterion = nn.CrossEntropyLoss()
         self.best_loss = float('inf')
         self.best_model = None
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.0001)
         self.writer = SummaryWriter(f'runs/{outputs}')
         self.total_epochs = total_epochs
         self.start_epochs = start_epochs
@@ -113,7 +101,7 @@ class Pipeline():
         torch.save(self.model.state_dict(), f'{self.outputs}.pth')
 
     def test(self):
-        self.model.load_state_dict(torch.load(f'{self.load}.pth'))
+        self.model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{self.load}.pth')))
         if self.has_labels:
             # Test the model
             preds, labels = test(self.model, self.test_loader, self.device)
@@ -130,9 +118,12 @@ class Pipeline():
                 with torch.no_grad():
                     test_output = self.model(test_image)
                     test_pred = torch.argmax(test_output, dim=1).squeeze().cpu().numpy()
-                visualize_segmentation(test_image.cpu().numpy(), test_label.numpy(), test_pred, f'seg_{random_idx+1}', folder='segmentation')
+                    dice_pred = calculate_dice_per_class(torch.from_numpy(test_pred).long(), test_label, 4)
+                    patient_idx = self.test_dataset.get_patient_idx(random_idx) + 9
+                visualize_segmentation_Dice(test_image.cpu().numpy(), test_label.numpy(), test_pred, f'seg_{random_idx+1}',  dice_pred, patient_idx, folder=self.visualize)
+
         else:
-            self.visualize_predictions()
+            self.visualize_predictions(self.visualize)
     
     def inference(self):
         self.model.eval()
@@ -149,7 +140,7 @@ class Pipeline():
         
         return images, predictions
 
-    def visualize_predictions(self, num_samples=100):
+    def visualize_predictions(self, folder, num_samples=100):
         images, predictions = self.inference()
         
         for i in range(min(num_samples, len(images))):
@@ -167,26 +158,26 @@ class Pipeline():
             plt.title('Predicted Segmentation')
             plt.axis('off')
             
-            plt.savefig(os.path.join(self.outputs, f'prediction_{i+1}.png'))
+            plt.savefig(os.path.join(folder, f'prediction_{i+1}.png'))
             plt.close()
 
-def main(dataset, outputs, train=True, load="", total_epochs=50, start_epochs=0, batch_size=8, has_labels=True):
+def main(dataset, outputs, visualize, train=True, load="",  total_epochs=50, start_epochs=0, batch_size=8, has_labels=True):
     # 4 labels, classes
     model = UNet(1, 4)
     
     if len(load) > 0:
-        model.load_state_dict(torch.load(load + ".pth"))
+        model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
     
-    pipeline = Pipeline(model, dataset=dataset, outputs=outputs, load=load, total_epochs=20, start_epochs=0, batch_size=8, has_labels=has_labels)
+    pipeline = Pipeline(model, dataset=dataset, visualize=visualize, outputs=outputs, load=load, total_epochs=total_epochs, start_epochs=start_epochs, batch_size=batch_size, has_labels=has_labels)
     
     if train==True:
         pipeline.train()
     pipeline.test()
 
 if __name__ == '__main__':
-    dataset = "../InterpolatedImages/"
-    outputs = 'segmentationInterpolation'
-    main(dataset, outputs, train=False, load="segmentation", total_epochs=50, start_epochs=0, batch_size=8, has_labels=False)
+    dataset = "../Training"
+    outputs = 'segmentation'
+    main(dataset, outputs, total_epochs=100, visualize="segmentationVisualization", start_epochs=0, batch_size=8)
 
     # 4 labels, classes
     #main(dataset, outputs, load=False, total_epochs=50, start_epochs=0, batch_size=8)

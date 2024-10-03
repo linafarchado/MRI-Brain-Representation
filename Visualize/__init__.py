@@ -1,2 +1,1 @@
-from .visualize import visualize_interpolation, visualize_image, visualize_interpolation_even
-from .visualize import visualize_segmentation, visualize_image_without_label
+from .visualize import *

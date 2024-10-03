@@ -6,14 +6,14 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from Dataloader import CustomDatasetWithLabels
+from Dataloader import CustomDatasetWithLabels, CustomDataset, CustomDatasetWithLabelsFiltered
 from Utils import filter_black_images_from_dataset
 from Visualize import visualize_image
 
 
 if __name__ == "__main__":
     folder = "../Training/"
-    dataset = CustomDatasetWithLabels(folder)
+    dataset = CustomDatasetWithLabelsFiltered(folder, is_training=True)
     dataset = filter_black_images_from_dataset(dataset)
 
     print(len(dataset))

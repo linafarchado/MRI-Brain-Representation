@@ -118,7 +118,7 @@ def visualize_image(dataset, idx, folder):
     plt.savefig(os.path.join(folder, f"image_{idx+1}.png"))
     plt.show()
 
-def visualize_image_without_label(image, folder, idx):
+def visualize_image_without_label(image, idx, folder):
     os.makedirs(folder, exist_ok=True)
     plt.figure(figsize=(5, 5))
     
@@ -185,4 +185,33 @@ def visualize_interpolation_even(center_idx, dataset, mse, alpha, interpolated_i
     save_path = os.path.join(save_dir, f'interpolated_images_{center_idx}.png')
     plt.savefig(save_path)
     
+    plt.close()
+
+def visualize_segmentation_Dice(image, true_label, pred_label, idx, dice_pred, patient_idx, folder):
+    os.makedirs(folder, exist_ok=True)
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
+    
+    # Affichage de l'image originale
+    ax1.imshow(image[0], cmap='gray')
+    ax1.set_title(f'Original Image from patient {patient_idx}')
+    ax1.axis('off')
+    
+    # Affichage de la vérité de terrain avec le score Dice
+    ax2.imshow(true_label, cmap='viridis')
+    ax2.set_title('True Segmentation')
+    ax2.axis('off')
+    
+    # Ajouter le score Dice sur la vérité de terrain
+    dice_text = '\n'.join([f'Class {cls}: {score:.2f}' for cls, score in dice_pred])
+    ax2.text(0.5, 0.5, f'Dice Scores:\n{dice_text}', color='white', fontsize=10, ha='center', va='center', 
+             bbox=dict(facecolor='black', alpha=0.5, edgecolor='none'))
+    
+    # Affichage de la segmentation prédite
+    ax3.imshow(pred_label, cmap='viridis')
+    ax3.set_title('Predicted Segmentation')
+    ax3.axis('off')
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder, f"{idx}.png"))
+    plt.show()
     plt.close()

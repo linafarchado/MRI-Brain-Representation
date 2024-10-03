@@ -17,7 +17,7 @@ from Utils import pad_image, filter_black_images_from_dataset
 class CustomDataset(Dataset):
     def __init__(self, folder):
         self.folder = folder
-        self.files_list = sorted([filename for filename in os.listdir(folder) if 'T2' in filename])
+        self.files_list = sorted([filename for filename in os.listdir(folder) if 'T2' in filename and filename.endswith('.hdr')])
         self.loaded_images = []
         self.image_patient_mapping = []
         self.load_images()
