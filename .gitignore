@@ -162,7 +162,7 @@ cython_debug/
 #.idea/
 
 
-Training/
+Training*
 Testing/
 InterpolatedImages/
 Images*
@@ -171,3 +171,7 @@ Images*
 */*/*.png
 */*pth
 mri/
+*/*/*.img
+*/*/*.hdr
+*Images*
+*Plot*
