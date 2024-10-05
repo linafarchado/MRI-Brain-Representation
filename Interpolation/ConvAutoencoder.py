@@ -23,6 +23,8 @@ class ConvAutoencoder(nn.Module):
         return x
     
     def encode(self, x):
+        if x.dim() == 2:
+            x = x.unsqueeze(0)
         return self.encoder(x)
     
     def decode(self, x):

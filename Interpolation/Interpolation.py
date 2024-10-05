@@ -27,6 +27,7 @@ class ImageInterpolator:
         # Encode the images
         latent1 = self.model.encode(image1)
         latent2 = self.model.encode(image2)
+        
         # Interpolation
         interpolated_latent = alpha * latent1 + (1 - alpha) * latent2
 
@@ -82,46 +83,6 @@ def main(folder, outputs, checkpoint):
         cpt += 1
         visualize_interpolation(cpt, image1, image2, interpolated_image, model_name='ConvAutoencoder')
 
-def evaluate_interpolation(model, dataset, image_interpolator, outputs):
-    mse_loss = torch.nn.MSELoss()
-    total_mse = 0
-    count = 0
-
-    for i in range(2, len(dataset) - 2, 2):
-        if dataset.get_patient_idx(i) == dataset.get_patient_idx(i+2):
-            image1 = dataset[i]
-            image2 = dataset[i + 2]
-            alpha = round(random.uniform(0, 1), 2)
-
-            # Ensure the images are 4D tensors (batch, channel, height, width)
-            if image1.dim() != 4:
-                image1 = image1.unsqueeze(0)
-            if image2.dim() != 4:
-                image2 = image2.unsqueeze(0)
-            
-            # If the images don't have a channel dimension, add it
-            if image1.size(1) != 1:
-                image1 = image1.unsqueeze(1)
-            if image2.size(1) != 1:
-                image2 = image2.unsqueeze(1)
-            
-            interpolated_image = image_interpolator.interpolate(image1, image2, alpha)
-
-            mse = mse_loss(interpolated_image, dataset[i+1])
-            total_mse += mse.item()
-            count += 1
-
-            if interpolated_image.dim() == 4:
-                interpolated_image = interpolated_image.squeeze(0)
-            interpolated_image_np = interpolated_image.permute(1, 2, 0).detach().cpu().numpy()
-
-            save_image_nifti(interpolated_image_np, f'interpolated_{i}', outputs)
-
-            # Visualisation
-            #visualize_interpolation_even(i+1, dataset, mse, alpha, interpolated_image, model_name='ConvAutoencoder')
-
-    avg_mse = total_mse / count if count > 0 else 0
-    return avg_mse
 
 def main_even_images(folder, checkpoint, outputs):
     model = ConvAutoencoder(out_channels=32)
