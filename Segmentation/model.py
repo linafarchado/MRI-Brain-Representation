@@ -76,7 +76,7 @@ class Pipeline():
             model_path = os.path.join(self.outputs, f'best_model_epoch_{epoch}.pth')
             torch.save(self.best_model, model_path)
 
-    def train(self):
+    def trainAndEval(self):
         # Training loop
         for epoch in range(self.start_epochs, self.total_epochs):
             train_loss = train(self.model, self.train_loader, self.criterion, self.optimizer, self.device)
@@ -171,7 +171,7 @@ def main(dataset, outputs, visualize, train=True, load="",  total_epochs=50, sta
     pipeline = Pipeline(model, dataset=dataset, visualize=visualize, outputs=outputs, load=load, total_epochs=total_epochs, start_epochs=start_epochs, batch_size=batch_size, has_labels=has_labels)
     
     if train==True:
-        pipeline.train()
+        pipeline.trainAndEval()
     pipeline.test()
 
 if __name__ == '__main__':
