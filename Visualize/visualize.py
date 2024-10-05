@@ -132,11 +132,12 @@ def visualize_image_without_label(image, idx, folder):
 
 def visualize_interpolation_even(center_idx, dataset, mse, alpha, interpolated_image, model_name, save_dir='InterpolatedEvenImagesPlot'):
     os.makedirs(save_dir, exist_ok=True)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     mse_loss = torch.nn.MSELoss()
-    mse_i = mse_loss(interpolated_image, dataset[center_idx])
-    mse_i_plus_2 = mse_loss(interpolated_image, dataset[center_idx+2])
-    mse_i_moins_2 = mse_loss(interpolated_image, dataset[center_idx-2])
+    mse_i = mse_loss(interpolated_image.to(device), dataset[center_idx].to(device))
+    mse_i_plus_2 = mse_loss(interpolated_image.to(device), dataset[center_idx+2].to(device))
+    mse_i_moins_2 = mse_loss(interpolated_image.to(device), dataset[center_idx-2].to(device))
 
     # Déterminer les indices à visualiser
     indices = [center_idx-2, center_idx-1, center_idx, center_idx+1, center_idx+2]
