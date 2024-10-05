@@ -15,9 +15,13 @@ sys.path.append(parent_dir)
 from Utils import pad_image, filter_black_images_from_dataset
 
 class CustomDataset(Dataset):
-    def __init__(self, folder):
+    def __init__(self, folder, start_idx=None, end_idx=None):
         self.folder = folder
         self.files_list = sorted([filename for filename in os.listdir(folder) if 'T2' in filename and filename.endswith('.hdr')])
+        
+        if start_idx is not None and end_idx is not None:
+            self.files_list = self.files_list[start_idx:end_idx]
+        
         self.loaded_images = []
         self.image_patient_mapping = []
         self.load_images()
