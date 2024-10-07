@@ -2,6 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from torchmetrics.image import PeakSignalNoiseRatio
 
 def visualize_interpolation_models(cpt, image1, image2, interpolated_image8, interpolated_image16, interpolated_image32):
     # Convert tensors to numpy arrays for visualization
@@ -130,62 +131,70 @@ def visualize_image_without_label(image, idx, folder):
     plt.show()
 
 
-def visualize_interpolation_even(center_idx, dataset, mse, alpha, interpolated_image, model_name, save_dir='InterpolatedEvenImagesPlot'):
+def visualize_interpolation_even(center_idx, dataset, alpha, interpolated_image, model_name, save_dir='InterpolatedEvenImagesPlot'):
     os.makedirs(save_dir, exist_ok=True)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     mse_loss = torch.nn.MSELoss()
-    mse_i = mse_loss(interpolated_image.to(device), dataset[center_idx].to(device))
-    mse_i_plus_2 = mse_loss(interpolated_image.to(device), dataset[center_idx+2].to(device))
-    mse_i_moins_2 = mse_loss(interpolated_image.to(device), dataset[center_idx-2].to(device))
+    psnr = PeakSignalNoiseRatio().to(device)
 
-    # Déterminer les indices à visualiser
+    # Déterminer les indices à visualiser en restant dans les limites du dataset
+    dataset_length = len(dataset)
     indices = [center_idx-2, center_idx-1, center_idx, center_idx+1, center_idx+2]
-    indices = [max(0, min(idx, len(dataset)-1)) for idx in indices]
+    indices = [idx for idx in indices if 0 <= idx < dataset_length]
 
-    # Récupérer les images
-    images = [dataset[idx].unsqueeze(0) for idx in indices]
+    # Récupérer les images et calculer les métriques
+    images = []
+    mse_values = []
+    psnr_values = []
+    diff_images = []
+
+    for idx in indices:
+        img = dataset[idx].unsqueeze(0)
+        images.append(img)
+        mse_values.append(mse_loss(interpolated_image.to(device), img.to(device)).item())
+        psnr_values.append(psnr(interpolated_image.to(device), img.to(device)).item())
+        diff_images.append(torch.abs(interpolated_image.to(device) - img.to(device)).squeeze().detach().cpu().numpy())
 
     # Convert tensors to numpy arrays for visualization
     images_np = [img.squeeze().detach().cpu().numpy() for img in images]
     interpolated_image_np = interpolated_image.squeeze().detach().cpu().numpy()
 
     # Plot the images
-    fig, axes = plt.subplots(2, 3, figsize=(15, 12))
-    
-    # Top row: Images i-2, i, i+2
-    axes[0, 0].imshow(images_np[0], cmap='gray')
-    axes[0, 0].set_title(f'Image {indices[0]}, MSE: {mse_i_moins_2:.4f}')
-    axes[0, 0].axis('off')
-    
-    axes[0, 1].imshow(images_np[2], cmap='gray')
-    axes[0, 1].set_title(f'Image {indices[2]}, MSE: {mse_i:.4f}')
-    axes[0, 1].axis('off')
-    
-    axes[0, 2].imshow(images_np[4], cmap='gray')
-    axes[0, 2].set_title(f'Image {indices[4]}, MSE: {mse_i_plus_2:.4f}')
-    axes[0, 2].axis('off')
+    fig, axes = plt.subplots(3, 3, figsize=(15, 18))
 
-    # Bottom row: Image i-1, Interpolated, i+1
-    axes[1, 0].imshow(images_np[1], cmap='gray')
-    axes[1, 0].set_title(f'Image {indices[1]}, alpha: {alpha}')
-    axes[1, 0].axis('off')
-    
-    axes[1, 1].imshow(interpolated_image_np, cmap='gray')
-    axes[1, 1].set_title(f'Interpolated Image ({model_name})')
-    axes[1, 1].axis('off')
-    
-    axes[1, 2].imshow(images_np[3], cmap='gray')
-    axes[1, 2].set_title(f'Image {indices[3]}, alpha: {1 - alpha}')
-    axes[1, 2].axis('off')
+    # Top row: Images i-2, i, i+2 (si disponibles)
+    top_indices = [0, 2, 4]
+    for i, idx in enumerate(top_indices):
+        if idx < len(images_np):
+            axes[0, i].imshow(images_np[idx], cmap='gray')
+            axes[0, i].set_title(f'Image {indices[idx]}, MSE: {mse_values[idx]:.4f}')
+        axes[0, i].axis('off')
 
+    # Bottom row: Difference images (si disponibles)
+    for i, idx in enumerate(top_indices):
+        if idx < len(diff_images):
+            axes[1, i].imshow(diff_images[idx], cmap='viridis')
+            axes[1, i].set_title(f'Difference Image {indices[idx]}, PSNR: {psnr_values[idx]:.2f}')
+        axes[1, i].axis('off')
+
+    # Middle row: Image i-1, Interpolated, i+1 (si disponibles)
+    middle_indices = [1, -1, 3]  # -1 pour interpolated image
+    for i, idx in enumerate(middle_indices):
+        if idx == -1:
+            axes[2, i].imshow(interpolated_image_np, cmap='gray')
+            axes[2, i].set_title(f'Interpolated Image ({model_name})')
+        elif idx < len(images_np):
+            axes[2, i].imshow(images_np[idx], cmap='gray')
+            axes[2, i].set_title(f'Image {indices[idx]}, alpha: {alpha if i == 0 else 1 - round(alpha, 2)}')
+        axes[2, i].axis('off')
 
     plt.tight_layout()
 
     # Save the plot to a file
     save_path = os.path.join(save_dir, f'interpolated_images_{center_idx}.png')
     plt.savefig(save_path)
-    
+
     plt.close()
 
 def visualize_segmentation_Dice(image, true_label, pred_label, idx, dice_pred, patient_idx, folder):
@@ -215,4 +224,85 @@ def visualize_segmentation_Dice(image, true_label, pred_label, idx, dice_pred, p
     plt.tight_layout()
     plt.savefig(os.path.join(folder, f"{idx}.png"))
     plt.show()
+    plt.close()
+
+def plot_dice_vs_std(dice_scores, std_values, save_path='dice_vs_std.png'):
+    plt.figure(figsize=(10, 6))
+    plt.plot(std_values, dice_scores, marker='o', color='b', label='Dice Score')
+    plt.axvline(x=0, color='r', linestyle='--', label='Ecart-type = 0')
+
+    plt.title('Dice moyen en fonction de l\'écart-type')
+    plt.xlabel('Écart-type')
+    plt.ylabel('Dice moyen')
+    plt.legend()
+    plt.grid(True)
+    
+    plt.savefig(save_path)
+    plt.close()
+
+def visualize_interpolation_even_with_labels(center_idx, dataset, alpha, interpolated_image, model_name, label=True, labelFile=False, save_dir='InterpolatedEvenImagesPlot'):
+    os.makedirs(save_dir, exist_ok=True)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    mse_loss = torch.nn.MSELoss()
+    psnr = PeakSignalNoiseRatio().to(device)
+
+    # Déterminer les indices à visualiser en restant dans les limites du dataset
+    dataset_length = len(dataset)
+    indices = [center_idx-2, center_idx-1, center_idx, center_idx+1, center_idx+2]
+    indices = [idx for idx in indices if 0 <= idx < dataset_length]
+
+    # Récupérer les images et calculer les métriques
+    images = []
+    mse_values = []
+    psnr_values = []
+    diff_images = []
+
+    for idx in indices:
+        img = dataset[idx][1].unsqueeze(0) if label else dataset[idx][0].unsqueeze(0)
+        images.append(img)
+        mse_values.append(mse_loss(interpolated_image.to(device), img.to(device)).item())
+        psnr_values.append(psnr(interpolated_image.to(device), img.to(device)).item())
+        diff_images.append(torch.abs(interpolated_image.to(device) - img.to(device)).squeeze().detach().cpu().numpy())
+
+    # Convert tensors to numpy arrays for visualization
+    images_np = [img.squeeze().detach().cpu().numpy() for img in images]
+    interpolated_image_np = interpolated_image.squeeze().detach().cpu().numpy()
+
+    # Plot the images
+    fig, axes = plt.subplots(3, 3, figsize=(15, 18))
+
+    # Top row: Images i-2, i, i+2 (si disponibles)
+    top_indices = [0, 2, 4]
+    for i, idx in enumerate(top_indices):
+        if idx < len(images_np):
+            axes[0, i].imshow(images_np[idx], cmap='gray')
+            axes[0, i].set_title(f'Image {indices[idx]}, MSE: {mse_values[idx]:.4f}')
+        axes[0, i].axis('off')
+
+    # Bottom row: Difference images (si disponibles)
+    for i, idx in enumerate(top_indices):
+        if idx < len(diff_images):
+            axes[1, i].imshow(diff_images[idx], cmap='viridis')
+            axes[1, i].set_title(f'Difference Image {indices[idx]}, PSNR: {psnr_values[idx]:.2f}')
+        axes[1, i].axis('off')
+
+    # Middle row: Image i-1, Interpolated, i+1 (si disponibles)
+    middle_indices = [1, -1, 3]  # -1 pour interpolated image
+    for i, idx in enumerate(middle_indices):
+        if idx == -1:
+            axes[2, i].imshow(interpolated_image_np, cmap='gray')
+            axes[2, i].set_title(f'Interpolated Image ({model_name})')
+        elif idx < len(images_np):
+            axes[2, i].imshow(images_np[idx], cmap='gray')
+            axes[2, i].set_title(f'Image {indices[idx]}, alpha: {alpha if i == 0 else 1 - alpha}')
+        axes[2, i].axis('off')
+
+    plt.tight_layout()
+
+    # Save the plot to a file
+    filename = f'interpolated_label_{center_idx}' if labelFile else f'interpolated_images_{center_idx}'
+    save_path = os.path.join(save_dir, f'{filename}.png')
+    plt.savefig(save_path)
+
     plt.close()

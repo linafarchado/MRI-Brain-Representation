@@ -4,7 +4,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import random
 import os
-
+import numpy as np
 
 import sys
 
@@ -14,7 +14,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from Interpolation import save_image_nifti
-from Visualize import visualize_interpolation_even
+from Visualize import visualize_interpolation_even, visualize_interpolation_even_with_labels
 
 def test(load, dataset, model, device):
     model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
@@ -29,21 +29,16 @@ def test(load, dataset, model, device):
             img2 = dataset[i+1].to(device)
             img3 = dataset[i+2].to(device)
 
-            # Encoder les images avec le modèle entraîné
             latent1 = model.encode(img1)
             latent2 = model.encode(img2)
             latent3 = model.encode(img3)
             
             alpha = round(random.uniform(0, 1), 2)
 
-            # Interpolation dans l'espace latent
             interpolated_latent = (1 - alpha) * latent1 + alpha * latent3
             
-            # Décodage pour obtenir l'image interpolée
             interpolated_image = model.decode(interpolated_latent)
 
-            print(f'Shape of interpolated image: {interpolated_image.shape}')
-            print(f'Shape of image: {dataset[i+1].shape}')
             mse = mse_loss(interpolated_image, img2)
             total_mse += mse.item()
             count += 1
@@ -52,10 +47,10 @@ def test(load, dataset, model, device):
                 interpolated_image = interpolated_image.squeeze(0)
             interpolated_image_np = interpolated_image.permute(1, 2, 0).detach().cpu().numpy()
 
-            save_image_nifti(interpolated_image_np, f'interpolated_{i}', f'{load}Images')
+            #save_image_nifti(interpolated_image_np, f'interpolated_{i}', f'{load}Images')
 
             # Visualisation
-            visualize_interpolation_even(i+1, dataset, mse, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}Plot')
+            visualize_interpolation_even(i+1, dataset, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}PlotBis')
 
     avg_mse = total_mse / count if count > 0 else 0
     return avg_mse
@@ -140,3 +135,63 @@ def evaluate(model, val_dataset, device):
                 batch_count += 1
     
     return total_loss / batch_count if batch_count > 0 else float('inf')
+
+def test_interpolation_with_labels(model, dataset, load, device):
+    model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
+    output_dir = f'{load}WithLabels'
+    os.makedirs(output_dir, exist_ok=True)
+    model.eval()
+    
+    for i in tqdm(range(2, len(dataset) - 2, 2)):
+        if dataset.get_patient_idx(i) == dataset.get_patient_idx(i+2):
+            # Get three consecutive images and labels
+            img1, label1 = dataset[i]
+            img1, label1 = img1.unsqueeze(0).to(device), label1.float().unsqueeze(0).to(device)
+            img2, label2 = dataset[i+1]
+            img2, label2 = img2.unsqueeze(0).to(device), label2.float().unsqueeze(0).to(device)
+            img3, label3 = dataset[i+2]
+            img3, label3 = img3.unsqueeze(0).to(device), label3.float().unsqueeze(0).to(device)
+            
+            # Generate interpolations with different alphas
+            alphas = torch.cat([
+                torch.rand(1),
+                torch.tensor([0.5]),
+                torch.tensor([0.25, 0.75]),
+            ]).to(device)
+
+            for alpha in alphas:
+                with torch.no_grad():
+                    # Interpolate images
+                    latent1_img = model.encoder(img1)
+                    latent3_img = model.encoder(img3)
+                    latent_interp_img = (1 - alpha) * latent1_img + alpha * latent3_img
+                    interp_image = model.decoder(latent_interp_img)
+                    
+                    # Interpolate labels
+                    latent1_label = model.encoder(label1)
+                    latent3_label = model.encoder(label3)
+                    latent_interp_label = (1 - alpha) * latent1_label + alpha * latent3_label
+                    interp_label = model.decoder(latent_interp_label)
+                    
+                
+                if interp_image.dim() == 4:
+                    interp_image = interp_image.squeeze(0)
+                interpolated_image_np = interp_image.permute(1, 2, 0).detach().cpu().numpy()
+                
+                if interp_label.dim() == 4:
+                    interp_label = interp_label.squeeze(0)
+                interpolated_label_np = interp_label.permute(1, 2, 0).detach().cpu().numpy()
+
+                print(f"\nInterpolation with alpha={alpha:.2f}")
+                unique_values = np.unique(interpolated_label_np)
+                print(f"Unique values in interpolated labels: {unique_values}") 
+
+                save_image_nifti(interpolated_image_np, f"image_{i}", output_dir)
+                save_image_nifti(interpolated_label_np, f"label_{i}", output_dir)
+
+                outputPlot = f'{load}PlotWithLabels'
+                os.makedirs(outputPlot, exist_ok=True)
+                visualize_interpolation_even_with_labels(i+1, dataset, alpha, interp_image, model_name='ConvAutoencoder', save_dir=outputPlot)
+                visualize_interpolation_even_with_labels(i+1, dataset, alpha, interp_label, model_name='ConvAutoencoder', save_dir=outputPlot, labelFile=True)
+
+
