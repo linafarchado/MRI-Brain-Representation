@@ -3,6 +3,7 @@ import nibabel as nib
 import torch
 from torch.utils.data import Dataset
 import sys
+import numpy as np
 
 # Add parent directory to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -49,6 +50,10 @@ class CustomDatasetWithLabelsFiltered(Dataset):
         for idx_patient, filename in enumerate(self.files_list):
             img_path = os.path.join(self.folder, filename)
             img = nib.load(img_path).get_fdata()
+            # for interpolation
+            if img.ndim == 2:
+                img = np.expand_dims(img, axis=2)
+            ####
             if img.shape[2] == 1:
                 tensor_image = torch.tensor(img.squeeze()).unsqueeze(0)
                 if torch.sum(tensor_image) != 0:
@@ -65,6 +70,10 @@ class CustomDatasetWithLabelsFiltered(Dataset):
         for filename in self.labels_list:
             label_path = os.path.join(self.folder, filename)
             label = nib.load(label_path).get_fdata()
+            # for interpolation
+            if label.ndim == 2:
+                label = np.expand_dims(label, axis=2)
+            ####
             if label.shape[2] == 1:
                 tensor_label = torch.tensor(label.squeeze()).unsqueeze(0).long()
                 if torch.sum(tensor_label) != 0:

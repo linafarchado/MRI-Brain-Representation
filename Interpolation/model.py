@@ -1,14 +1,10 @@
 import torch
-import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import os
-import nibabel as nib
-import numpy as np
-from trainAndTest import train, evaluate, test, test_interpolation_with_labels
+from trainAndTest import train, evaluate, test
 from ConvAutoencoder import ConvAutoencoder
 
 import sys
@@ -19,17 +15,15 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from Interpolation import ImageInterpolator, save_image_nifti
+from Interpolation import ImageInterpolator
 from Dataloader import CustomDataset, CustomDatasetWithLabelsFiltered
 from Utils import EarlyStopping
-from Visualize import visualize_interpolation, visualize_interpolation_even
 
 class Pipeline:
-    def __init__(self, model, train_images, test_images, outputs, load="", batch_size=32, total_epochs=50, start_epochs=0, interpolate_labels=False):
+    def __init__(self, model, train_images, test_images, outputs, load="", batch_size=32, total_epochs=50, start_epochs=0):
         self.outputs = outputs
         os.makedirs(self.outputs, exist_ok=True)
         self.load = load if len(load) > 0 else outputs
-        self.interpolate_labels = interpolate_labels
         
         if train_images is not None:
             self.dataset = CustomDataset(train_images)
@@ -83,11 +77,9 @@ class Pipeline:
         torch.save(self.model.state_dict(), f'{self.outputs}.pth')
     
     def test(self):
-        if self.interpolate_labels:
-            test_interpolation_with_labels(self.model, self.test_dataset, self.load, self.device)
         test(self.load, self.test_dataset, self.model, self.device)
 
-def main(train_images, test_images=None, outputs='interpolation', load="", total_epochs=50, batch_size=32, interpolate_labels=False):
+def main(train_images, test_images=None, outputs='interpolation', load="", total_epochs=50, batch_size=32):
     model = ConvAutoencoder(out_channels=32)
     
     if len(load) > 0:
@@ -101,7 +93,6 @@ def main(train_images, test_images=None, outputs='interpolation', load="", total
         load=load,
         total_epochs=total_epochs,
         batch_size=batch_size,
-        interpolate_labels=interpolate_labels
     )
     
     if train_images is not None:
@@ -114,4 +105,4 @@ if __name__ == '__main__':
     train_images = "../Training"
     test_images = "../Testing"
     outputs = "interpolation"
-    main(train_images=None, test_images=train_images, outputs=outputs, load=outputs, total_epochs=100, batch_size=16, interpolate_labels=True)
+    main(train_images=None, test_images=train_images, outputs=outputs, load=outputs, total_epochs=100, batch_size=16)

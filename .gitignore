@@ -175,3 +175,8 @@ mri/
 */*/*.hdr
 *Images*
 *Plot*
+InterpolationSavedLabels
+New*
+*.png
+*.json
+.vscode/

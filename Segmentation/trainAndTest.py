@@ -8,6 +8,8 @@ def evaluate(model, val_loader, criterion, device):
     total_loss = 0
     with torch.no_grad():
         for images, labels in val_loader:
+            labels[labels == 255] = 3  # Assuming 255 should be mapped to 3
+            labels = torch.clamp(labels, 0, 3)
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -19,6 +21,8 @@ def train(model, train_loader, criterion, optimizer, device):
     total_loss = 0
 
     for images, labels in tqdm(train_loader):
+        labels[labels == 255] = 3  # Assuming 255 should be mapped to 3
+        labels = torch.clamp(labels, 0, 3)
         images, labels = images.to(device), labels.to(device)
         optimizer.zero_grad()
         outputs = model(images)

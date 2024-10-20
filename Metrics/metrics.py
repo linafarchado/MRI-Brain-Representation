@@ -8,7 +8,7 @@ def calculate_dice_per_class(pred, target, num_classes):
         pred_cls = (pred == cls).long()
         target_cls = (target == cls).long()
         
-        dice_metric = Dice()
+        dice_metric = Dice().to(pred.device)
         
         dice_score = dice_metric(pred_cls, target_cls)
         dice_scores.append((cls, dice_score.item()))

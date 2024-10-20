@@ -1,1 +1,1 @@
-from .Interpolation import ImageInterpolator, save_image_nifti
+from .Interpolation import ImageInterpolator

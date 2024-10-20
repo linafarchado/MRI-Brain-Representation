@@ -1,5 +1,8 @@
 import torch
 import torch.nn.functional as F
+import os
+import nibabel as nib
+import numpy as np
 
 def filter_black_images_from_dataset(dataset):
     filtered_dataset = []
@@ -32,3 +35,14 @@ def pad_image(image, target_height=160, target_width=192):
     
     return padded_image
 
+def save_image_nifti(image, filename, outputs):
+    os.makedirs(outputs, exist_ok=True)
+    image_nifti = nib.Nifti1Image(image, np.eye(4))
+    image_path_img = os.path.join(outputs, f'{filename}-T2.img')
+    nib.save(image_nifti, image_path_img)
+
+def save_label_nifti(label, filename, outputs):
+    os.makedirs(outputs, exist_ok=True)
+    label_nifti = nib.Nifti1Image(label, np.eye(4))
+    label_path_img = os.path.join(outputs, f'{filename}-label.img')
+    nib.save(label_nifti, label_path_img)
