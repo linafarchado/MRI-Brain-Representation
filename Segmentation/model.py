@@ -240,9 +240,9 @@ def main(outputs, visualize, train_images=None, test_images=None, load="",  tota
     pipeline.test()
 
 if __name__ == '__main__':
-    dataset = "../InterpolatedImages"
+    dataset = "../InterpolatedImagesODD"
     outputs = 'segmentation'
-    #main(outputs, visualize="InterpolationSavedLabels", test_images=dataset, load=outputs, batch_size=8, has_labels=False)
+    main(outputs, visualize="InterpolationSavedLabelsODD", test_images=dataset, load=outputs, batch_size=8, has_labels=False)
 
     # 4 labels, classes
-    main(outputs, visualize="InterpolationSavedLabels", train_images='../Training',  total_epochs=50, start_epochs=0, batch_size=8)
+    #main(outputs, visualize="InterpolationSavedLabelsODD", train_images='../Training',  total_epochs=50, start_epochs=0, batch_size=8)

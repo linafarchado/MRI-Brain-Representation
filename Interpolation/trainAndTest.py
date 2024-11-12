@@ -14,9 +14,10 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from Utils import save_image_nifti
-from Visualize import visualize_interpolation_even, visualize_interpolation_even_with_labels
+from Visualize import visualize_interpolation_even, visualize_interpolation
 
-def test(load, dataset, model, device):
+# test of even images
+"""def test(load, dataset, model, device):
     model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
     model.eval()
     mse_loss = nn.MSELoss()
@@ -53,7 +54,7 @@ def test(load, dataset, model, device):
             visualize_interpolation_even(i+1, dataset, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}PlotBis')
 
     avg_mse = total_mse / count if count > 0 else 0
-    return avg_mse
+    return avg_mse"""
 
 def process_one_batch(model, img1, img2, img3, optimizer, device):
     model.train()
@@ -135,3 +136,72 @@ def evaluate(model, val_dataset, device):
                 batch_count += 1
     
     return total_loss / batch_count if batch_count > 0 else float('inf')
+
+def test_random_images(load, dataset, model, device):
+    model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
+    model.eval()
+
+    length = len(dataset)
+    for i in range(length):
+        j = random.randint(0, length - 1)
+        img1 = dataset[i].to(device)
+        img2 = dataset[j].to(device)
+
+        latent1 = model.encode(img1)
+        latent2 = model.encode(img2)
+        
+        alpha = round(random.uniform(0, 1), 2)
+
+        interpolated_latent = (1 - alpha) * latent1 + alpha * latent2
+        
+        interpolated_image = model.decode(interpolated_latent)
+
+
+        if interpolated_image.dim() == 4:
+            interpolated_image = interpolated_image.squeeze(0)
+        #interpolated_image_np = interpolated_image.permute(1, 2, 0).detach().cpu().numpy()
+
+        #save_image_nifti(interpolated_image_np, f'interpolated_{i}', f'{load}Images')
+
+        # Visualisation
+        visualize_interpolation(i, j, img1, img2, alpha, interpolated_image, save_dir='InterpolatedImagesPlot')
+
+# test of odd images
+def test(load, dataset, model, device):
+    model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
+    model.eval()
+    mse_loss = nn.MSELoss()
+    total_mse = 0
+    count = 0
+
+    for i in tqdm(range(1, len(dataset) - 1, 2)):
+        if dataset.get_patient_idx(i) == dataset.get_patient_idx(i+2):
+            img1 = dataset[i].to(device)
+            img2 = dataset[i+1].to(device)
+            img3 = dataset[i+2].to(device)
+
+            latent1 = model.encode(img1)
+            latent2 = model.encode(img2)
+            latent3 = model.encode(img3)
+            
+            alpha = round(random.uniform(0, 1), 2)
+
+            interpolated_latent = (1 - alpha) * latent1 + alpha * latent3
+            
+            interpolated_image = model.decode(interpolated_latent)
+
+            mse = mse_loss(interpolated_image, img2)
+            total_mse += mse.item()
+            count += 1
+
+            if interpolated_image.dim() == 4:
+                interpolated_image = interpolated_image.squeeze(0)
+            interpolated_image_np = interpolated_image.permute(1, 2, 0).detach().cpu().numpy()
+
+            save_image_nifti(interpolated_image_np, f'interpolated_{i}', f'{load}ImagesBis')
+
+            # Visualisation
+            visualize_interpolation_even(i+1, dataset, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}PlotBis')
+
+    avg_mse = total_mse / count if count > 0 else 0
+    return avg_mse

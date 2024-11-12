@@ -24,7 +24,7 @@ from Metrics import calculate_dice_per_class
 from Visualize import visualize_segmentation_Dice, plot_dice_vs_std
 
 class Pipeline():
-    def __init__(self, model, visualize, outputs, load, original_images, artificial_images, test_images, batch_size=8, start_epochs=0, total_epochs=50, artificial_weight=0.5, has_labels=True):
+    def __init__(self, model, visualize, outputs, load, original_images, artificialODD, artificialEVEN, test_images, batch_size=8, start_epochs=0, total_epochs=50, artificial_weight=0.5, has_labels=True):
         self.outputs = outputs
         self.visualize = visualize
         self.has_labels = has_labels
@@ -35,9 +35,9 @@ class Pipeline():
 
         # Load original and artificial datasets
         self.original_dataset = CustomDatasetWithLabelsFiltered(original_images, is_training=True)
-        artificial_dataset_0_8 = CustomDatasetWithLabelsFiltered(artificial_images, is_training=True)
-        artificial_dataset_9_10 = CustomDatasetWithLabelsFiltered(artificial_images)
-        self.artificial_dataset = ConcatDataset([artificial_dataset_0_8, artificial_dataset_9_10])
+        self.artificial_dataset_odd = CustomDatasetWithLabelsFiltered(artificialODD, interpolation=True)
+        self.artificial_dataset_even = CustomDatasetWithLabelsFiltered(artificialEVEN, interpolation=True)
+        self.artificial_dataset = ConcatDataset([self.artificial_dataset_odd, self.artificial_dataset_even])
 
         # Combine datasets
         combined_dataset = ConcatDataset([self.original_dataset, self.artificial_dataset])
@@ -248,13 +248,31 @@ def main():
     #pipeline.trainAndEval()
     pipeline.test()
 
-def main_different_weigth():
-    weights = [0.9]
+def main_different_weigth(training, artificialODD, artificialEVEN, testing, load=''):
+    weights = [0.45, 0.75]
     for weight in weights:
         model = UNet(1, 4)
-        pipeline = Pipeline(model, visualize=f'NewSegmenter_{weight}', outputs=f'newsegmenter_{weight}', load='', original_images='../Training', artificial_images='../InterpolationSavedLabels', test_images='../Training', batch_size=8, start_epochs=0, total_epochs=100, artificial_weight=weight, has_labels=True)
+        pipeline = Pipeline(
+            model,
+            visualize=f'NewSegmenter_{weight}',
+            outputs=f'newsegmenter_{weight}',
+            load=load,
+            original_images=training,
+            artificialODD=artificialODD,
+            artificialEVEN=artificialEVEN,
+            test_images=testing,
+            batch_size=8,
+            start_epochs=0,
+            total_epochs=100,
+            artificial_weight=weight,
+            has_labels=True
+        )
         pipeline.trainAndEval()
         pipeline.test()
 
 if __name__ == '__main__':
-    main_different_weigth()
+    training = '../Training'
+    artificialODD = '../InterpolationSavedLabelsODD'
+    artificialEVEN = '../InterpolationSavedLabelsEVEN'
+    testing = '../Testing'
+    main_different_weigth(training, artificialODD, artificialEVEN, training)

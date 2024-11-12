@@ -13,9 +13,10 @@ sys.path.append(parent_dir)
 from Utils import pad_image
 
 class CustomDatasetWithLabelsFiltered(Dataset):
-    def __init__(self, folder, is_training=True):
+    def __init__(self, folder, is_training=True, interpolation=False):
         self.folder = folder
         self.is_training = is_training
+        self.interpolation = interpolation
         self.files_list, self.labels_list = self._filter_files()
         self.loaded_images = []
         self.loaded_labels = []
@@ -36,13 +37,18 @@ class CustomDatasetWithLabelsFiltered(Dataset):
             # Extract patient number from filename
             patient_num = int(img_file.split('-')[1])
             
-            # Training: patients 1-8, Testing: patients 9-10
-            if self.is_training and 1 <= patient_num <= 8:
+            if self.interpolation:
                 filtered_images.append(img_file)
                 filtered_labels.append(label_file)
-            elif not self.is_training and 9 <= patient_num <= 10:
-                filtered_images.append(img_file)
-                filtered_labels.append(label_file)
+
+            else:    
+                # Training: patients 1-8, Testing: patients 9-10
+                if self.is_training and 1 <= patient_num <= 8:
+                    filtered_images.append(img_file)
+                    filtered_labels.append(label_file)
+                elif not self.is_training and 9 <= patient_num <= 10:
+                    filtered_images.append(img_file)
+                    filtered_labels.append(label_file)
         
         return filtered_images, filtered_labels
     
