@@ -131,3 +131,9 @@ class CustomDatasetWithLabelsFiltered(Dataset):
             if image_idx == idx:
                 return patient_idx
         return None
+
+    def get_all_pixels(self):
+        pixels = []
+        for image in self.loaded_images:
+            pixels.extend(image.flatten().tolist())
+        return pixels
