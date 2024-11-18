@@ -5,7 +5,7 @@ from tqdm import tqdm
 import random
 import os
 import numpy as np
-
+import matplotlib.pyplot as plt
 import sys
 
 # Ajoutez le chemin du dossier parent au sys.path
@@ -14,7 +14,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from Utils import save_image_nifti
-from Visualize import visualize_interpolation_even, visualize_interpolation
+from Visualize import visualize_interpolation_even, visualize_interpolation, visualize_multi_interpolation
 
 # test of even images
 """def test(load, dataset, model, device):
@@ -167,7 +167,7 @@ def test_random_images(load, dataset, model, device):
         visualize_interpolation(i, j, img1, img2, alpha, interpolated_image, save_dir='InterpolatedImagesPlot')
 
 # test of odd images
-def test(load, dataset, model, device):
+"""def test(load, dataset, model, device):
     model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
     model.eval()
     mse_loss = nn.MSELoss()
@@ -202,6 +202,82 @@ def test(load, dataset, model, device):
 
             # Visualisation
             visualize_interpolation_even(i+1, dataset, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}PlotBis')
+
+    avg_mse = total_mse / count if count > 0 else 0
+    return avg_mse"""
+
+# test of 4 images, 2 from each side of the image
+def generate_weighted_random_alphas(num_points):
+    """
+    Generate random alpha values that sum to 1, with higher weights for central points
+    """
+    mid_point = num_points // 2
+    weights = [1 - abs(i - mid_point) / (num_points + 1) for i in range(num_points)]
+
+    # Generate random values and apply weights
+    random_values = [random.random() * weight for weight in weights]
+    
+    # Normalize to sum to 1
+    total = sum(random_values)
+    alphas = [val / total for val in random_values]
+    
+    return [round(alpha, 2) for alpha in alphas]
+
+def test(load, dataset, model, device):
+    model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
+    model.eval()
+    mse_loss = nn.MSELoss()
+    total_mse = 0
+    count = 0
+
+    for i in tqdm(range(2, len(dataset) - 2)):
+        if (dataset.get_patient_idx(i-2) == dataset.get_patient_idx(i-1) == 
+            dataset.get_patient_idx(i) == dataset.get_patient_idx(i+1) == 
+            dataset.get_patient_idx(i+2)):
+            
+            # Get 5 consecutive images
+            img0 = dataset[i-2].to(device)
+            img1 = dataset[i-1].to(device)
+            img2 = dataset[i].to(device)
+            img3 = dataset[i+1].to(device)
+            img4 = dataset[i+2].to(device)
+
+            # Encode all images
+            latent0 = model.encode(img0)
+            latent1 = model.encode(img1)
+            latent2 = model.encode(img2)
+            latent3 = model.encode(img3)
+            latent4 = model.encode(img4)
+
+            alphas = generate_weighted_random_alphas(4)
+
+            interpolated_latent = (
+                alphas[0] * latent0 + 
+                alphas[1] * latent1 + 
+                alphas[2] * latent3 + 
+                alphas[3] * latent4
+            )
+            
+            interpolated_image = model.decode(interpolated_latent)
+
+            mse = mse_loss(interpolated_image, img2)
+            total_mse += mse.item()
+            count += 1
+
+            if interpolated_image.dim() == 4:
+                interpolated_image = interpolated_image.squeeze(0)
+            interpolated_image_np = interpolated_image.permute(1, 2, 0).detach().cpu().numpy()
+
+            save_image_nifti(interpolated_image_np, f'interpolated_{i}', f'{load}ImagesMulti')
+            
+            visualize_multi_interpolation(
+                i, 
+                dataset, 
+                alphas, 
+                interpolated_image, 
+                model_name='ConvAutoencoder', 
+                save_dir=f'{load}PlotMulti'
+            )
 
     avg_mse = total_mse / count if count > 0 else 0
     return avg_mse

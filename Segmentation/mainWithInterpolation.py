@@ -24,7 +24,7 @@ from Metrics import calculate_dice_per_class
 from Visualize import visualize_segmentation_Dice, plot_dice_vs_std
 
 class Pipeline():
-    def __init__(self, model, visualize, outputs, load, original_images, artificialODD, artificialEVEN, test_images, batch_size=8, start_epochs=0, total_epochs=50, artificial_weight=0.5, has_labels=True):
+    def __init__(self, model, visualize, outputs, load, original_images, artificialFIRST, artificialSEC, test_images, batch_size=8, start_epochs=0, total_epochs=50, artificial_weight=0.5, has_labels=True):
         self.outputs = outputs
         self.visualize = visualize
         self.has_labels = has_labels
@@ -35,10 +35,12 @@ class Pipeline():
 
         # Load original and artificial datasets
         self.original_dataset = CustomDatasetWithLabelsFiltered(original_images, is_training=True)
-        self.artificial_dataset_odd = CustomDatasetWithLabelsFiltered(artificialODD, interpolation=True)
-        self.artificial_dataset_even = CustomDatasetWithLabelsFiltered(artificialEVEN, interpolation=True)
-        self.artificial_dataset = ConcatDataset([self.artificial_dataset_odd, self.artificial_dataset_even])
-
+        self.artificial_dataset_first = CustomDatasetWithLabelsFiltered(artificialFIRST, interpolation=True)
+        if artificialSEC is not None:
+            self.artificial_dataset_sec = CustomDatasetWithLabelsFiltered(artificialSEC, interpolation=True)
+            self.artificial_dataset = ConcatDataset([self.artificial_dataset_first, self.artificial_dataset_sec])
+        else:
+            self.artificial_dataset = self.artificial_dataset_first
         # Combine datasets
         combined_dataset = ConcatDataset([self.original_dataset, self.artificial_dataset])
         
@@ -248,8 +250,8 @@ def main():
     #pipeline.trainAndEval()
     pipeline.test()
 
-def main_different_weigth(training, artificialODD, artificialEVEN, testing, load=''):
-    weights = [0.45, 0.75]
+def main_different_weigth(training, artificialFIRST, artificialSEC, testing, load=''):
+    weights = [0.3, 0.35, 0.4, 0.5, 0.55, 0.6, 0.65, 0.7, 0.8, 0.85, 0.9, 0.95]
     for weight in weights:
         model = UNet(1, 4)
         pipeline = Pipeline(
@@ -258,8 +260,8 @@ def main_different_weigth(training, artificialODD, artificialEVEN, testing, load
             outputs=f'newsegmenter_{weight}',
             load=load,
             original_images=training,
-            artificialODD=artificialODD,
-            artificialEVEN=artificialEVEN,
+            artificialFIRST=artificialFIRST,
+            artificialSEC=artificialSEC,
             test_images=testing,
             batch_size=8,
             start_epochs=0,
@@ -272,7 +274,7 @@ def main_different_weigth(training, artificialODD, artificialEVEN, testing, load
 
 if __name__ == '__main__':
     training = '../Training'
-    artificialODD = '../InterpolationSavedLabelsODD'
-    artificialEVEN = '../InterpolationSavedLabelsEVEN'
+    artificialFIRST = '../InterpolationSavedLabelsMulti'
+    artificialSEC = None
     testing = '../Testing'
-    main_different_weigth(training, artificialODD, artificialEVEN, training)
+    main_different_weigth(training, artificialFIRST, artificialSEC, training)
