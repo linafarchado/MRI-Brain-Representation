@@ -180,3 +180,6 @@ New*
 *.png
 *.json
 .vscode/
+
+Segmentation/segV*
+info.txt

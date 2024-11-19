@@ -46,3 +46,8 @@ def save_label_nifti(label, filename, outputs):
     label_nifti = nib.Nifti1Image(label, np.eye(4))
     label_path_img = os.path.join(outputs, f'{filename}-label.img')
     nib.save(label_nifti, label_path_img)
+
+def add_latent_noise(latent, noise_range=(-0.01, 0.01)):
+    noise_vector = torch.zeros_like(latent).uniform_(noise_range[0], noise_range[1])
+    noisy_latent = latent + noise_vector
+    return noisy_latent

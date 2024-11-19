@@ -55,10 +55,10 @@ class Pipeline:
             model_path = os.path.join(self.outputs, f'best_model_epoch_{epoch}.pth')
             torch.save(self.best_model, model_path)
 
-    def trainAndEval(self):
+    def trainAndEval(self, noise_range=(-0.01, 0.01), noise=False):
         for epoch in range(self.start_epochs, self.total_epochs):
-            train_loss = train(self.model, self.train_dataset, self.optimizer, self.device)
-            val_loss = evaluate(self.model, self.val_dataset, self.device)
+            train_loss = train(self.model, self.train_dataset, self.optimizer, self.device, noise_range, noise)
+            val_loss = evaluate(self.model, self.val_dataset, self.device, noise_range, noise)
             
             print(f'Epoch {epoch+1}/{self.total_epochs}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}')
             
@@ -76,11 +76,12 @@ class Pipeline:
         
         torch.save(self.model.state_dict(), f'{self.outputs}.pth')
     
-    def test(self):
-        test(self.load, self.test_dataset, self.model, self.device)
+    def test(self, noise_range=(-0.01, 0.01), noise=False):
+        test(self.load, self.test_dataset, self.model, self.device, noise_range, noise)
         #test_random_images(self.load, self.test_dataset, self.model, self.device)
 
-def main(train_images, test_images=None, outputs='interpolation', load="", total_epochs=50, batch_size=32):
+def main(train_images, test_images=None, outputs='interpolation', load="", total_epochs=50, batch_size=32, noise_range=None):
+    
     model = ConvAutoencoder(out_channels=32)
     
     if len(load) > 0:
@@ -97,13 +98,18 @@ def main(train_images, test_images=None, outputs='interpolation', load="", total
     )
     
     if train_images is not None:
-        pipeline.trainAndEval()
+        if noise_range is not None:
+            pipeline.trainAndEval(noise_range=noise_range, noise=True)
+        else:
+            pipeline.trainAndEval()
     
     if test_images is not None:
+        if noise_range is not None:
+            pipeline.test(noise_range=noise_range, noise=True)
         pipeline.test()
 
 if __name__ == '__main__':
     train_images = "../Training"
     test_images = "../Testing"
-    outputs = "interpolation"
-    main(train_images=None, test_images=test_images, outputs=outputs, load=outputs, total_epochs=100, batch_size=16)
+    outputs = "noisyInterpolation"
+    main(train_images=train_images, test_images=test_images, outputs=outputs, total_epochs=100, batch_size=16, noise_range=(-0.01, 0.01))

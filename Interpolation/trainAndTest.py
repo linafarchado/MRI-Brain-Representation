@@ -13,11 +13,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from Utils import save_image_nifti
+from Utils import save_image_nifti, add_latent_noise
 from Visualize import visualize_interpolation_even, visualize_interpolation, visualize_multi_interpolation
 
 # test of even images
-"""def test(load, dataset, model, device):
+def test(load, dataset, model, device, noise_range=(-0.01, 0.01), noise=False):
     model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
     model.eval()
     mse_loss = nn.MSELoss()
@@ -37,8 +37,11 @@ from Visualize import visualize_interpolation_even, visualize_interpolation, vis
             alpha = round(random.uniform(0, 1), 2)
 
             interpolated_latent = (1 - alpha) * latent1 + alpha * latent3
+
+            # Add noise to interpolated latent
+            noisy_interpolated_latent = add_latent_noise(interpolated_latent, noise_range) if noise else interpolated_latent
             
-            interpolated_image = model.decode(interpolated_latent)
+            interpolated_image = model.decode(noisy_interpolated_latent)
 
             mse = mse_loss(interpolated_image, img2)
             total_mse += mse.item()
@@ -48,15 +51,15 @@ from Visualize import visualize_interpolation_even, visualize_interpolation, vis
                 interpolated_image = interpolated_image.squeeze(0)
             interpolated_image_np = interpolated_image.permute(1, 2, 0).detach().cpu().numpy()
 
-            #save_image_nifti(interpolated_image_np, f'interpolated_{i}', f'{load}Images')
+            save_image_nifti(interpolated_image_np, f'interpolated_{i}', f'{load}ImagesEVENnoise')
 
             # Visualisation
-            visualize_interpolation_even(i+1, dataset, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}PlotBis')
+            visualize_interpolation_even(i+1, dataset, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}PlotEVENnoise')
 
     avg_mse = total_mse / count if count > 0 else 0
-    return avg_mse"""
+    return avg_mse
 
-def process_one_batch(model, img1, img2, img3, optimizer, device):
+def process_one_batch(model, img1, img2, img3, optimizer, device, noise_range=(-0.01, 0.01), noise=False):
     model.train()
     if optimizer is not None:
         optimizer.zero_grad()
@@ -76,7 +79,11 @@ def process_one_batch(model, img1, img2, img3, optimizer, device):
     total_loss = 0
     for alpha in alphas:
         interpolated_latent = (1 - alpha) * latent1 + alpha * latent3
-        generated_img = model.decode(interpolated_latent)
+        
+        # Add noise to interpolated latent
+        noisy_interpolated_latent = add_latent_noise(interpolated_latent, noise_range) if noise else interpolated_latent
+        
+        generated_img = model.decode(noisy_interpolated_latent)
         
         if alpha == 0.5:
             target_img = img2
@@ -101,7 +108,7 @@ def process_one_batch(model, img1, img2, img3, optimizer, device):
     
     return avg_loss.item()
 
-def train(model, train_dataset, optimizer, device):
+def train(model, train_dataset, optimizer, device, noise_range=(-0.01, 0.01), noise=False):
     model.train()
     total_loss = 0
     batch_count = 0
@@ -112,14 +119,14 @@ def train(model, train_dataset, optimizer, device):
             img2 = train_dataset[i+1].to(device)
             img3 = train_dataset[i+2].to(device)
             
-            avg_batch_loss = process_one_batch(model, img1, img2, img3, optimizer, device)
+            avg_batch_loss = process_one_batch(model, img1, img2, img3, optimizer, device, noise_range=noise_range, noise=noise)
             
             total_loss += avg_batch_loss
             batch_count += 1
             
     return total_loss / batch_count if batch_count > 0 else float('inf')
 
-def evaluate(model, val_dataset, device):
+def evaluate(model, val_dataset, device, noise_range=(-0.01, 0.01), noise=False):
     model.eval()
     total_loss = 0
     batch_count = 0
@@ -131,7 +138,7 @@ def evaluate(model, val_dataset, device):
                 img2 = val_dataset[i+1].to(device)
                 img3 = val_dataset[i+2].to(device)
                 
-                avg_batch_loss = process_one_batch(model, img1, img2, img3, optimizer=None, device=device)
+                avg_batch_loss = process_one_batch(model, img1, img2, img3, optimizer=None, device=device, noise_range=noise_range, noise=noise)
                 total_loss += avg_batch_loss
                 batch_count += 1
     
@@ -167,7 +174,7 @@ def test_random_images(load, dataset, model, device):
         visualize_interpolation(i, j, img1, img2, alpha, interpolated_image, save_dir='InterpolatedImagesPlot')
 
 # test of odd images
-"""def test(load, dataset, model, device):
+"""def test(load, dataset, model, device, noise_range=(-0.01, 0.01), noise=False):
     model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
     model.eval()
     mse_loss = nn.MSELoss()
@@ -187,8 +194,11 @@ def test_random_images(load, dataset, model, device):
             alpha = round(random.uniform(0, 1), 2)
 
             interpolated_latent = (1 - alpha) * latent1 + alpha * latent3
+
+            # Add noise to interpolated latent
+            noisy_interpolated_latent = add_latent_noise(interpolated_latent, noise_range) if noise else interpolated_latent
             
-            interpolated_image = model.decode(interpolated_latent)
+            interpolated_image = model.decode(noisy_interpolated_latent)
 
             mse = mse_loss(interpolated_image, img2)
             total_mse += mse.item()
@@ -223,7 +233,8 @@ def generate_weighted_random_alphas(num_points):
     
     return [round(alpha, 2) for alpha in alphas]
 
-def test(load, dataset, model, device):
+# test of 4 images, 2 from each side of the image
+"""def test(load, dataset, model, device):
     model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
     model.eval()
     mse_loss = nn.MSELoss()
@@ -280,4 +291,4 @@ def test(load, dataset, model, device):
             )
 
     avg_mse = total_mse / count if count > 0 else 0
-    return avg_mse
+    return avg_mse"""
