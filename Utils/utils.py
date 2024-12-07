@@ -51,3 +51,7 @@ def add_latent_noise(latent, noise_range=(-0.01, 0.01)):
     noise_vector = torch.zeros_like(latent).uniform_(noise_range[0], noise_range[1])
     noisy_latent = latent + noise_vector
     return noisy_latent
+
+def create_binary_mask(image, lower_bound=0.4, upper_bound=0.5):
+    mask = (image >= lower_bound) & (image <= upper_bound)
+    return mask.float()

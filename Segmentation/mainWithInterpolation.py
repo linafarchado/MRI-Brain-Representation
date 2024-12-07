@@ -1,3 +1,4 @@
+import random
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,6 +12,12 @@ from torch.utils.data import ConcatDataset
 import sys
 import os
 from model import UNet
+
+import time
+seed = int(time.time())  # Utiliser l'heure actuelle comme seed
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
 
 # Add parent directory to sys.path
 import sys
@@ -78,8 +85,6 @@ class Pipeline():
             model_path = os.path.join(self.outputs, f'best_model_epoch_{epoch}.pth')
             torch.save(self.best_model, model_path)
 
-    
-
     def trainAndEval(self):
         for epoch in range(self.start_epochs, self.total_epochs):
             self.model.train()
@@ -114,12 +119,13 @@ class Pipeline():
                 print(f"Early stopping, epoch: {epoch}")
                 break
 
-            self.save_best_model(epoch, val_loss)
+            #self.save_best_model(epoch, val_loss)
 
         self.writer.close()
         torch.save(self.model.state_dict(), f'{self.outputs}.pth')
 
     def test(self):
+        print(f'Testing... {self.load}, and has_labels={self.has_labels}')
         self.model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{self.load}.pth')))
         if self.has_labels:
             preds, labels = test(self.model, self.test_loader, self.device)
@@ -148,9 +154,6 @@ class Pipeline():
             
             # Tracer le graphe
             plot_dice_vs_std(dice_scores, std_values, save_path=os.path.join(self.visualize, 'dice_vs_std.png'))
-
-
-            # Visualize 50 random samples
             
             for i in range(len(self.test_dataset)):
                 random_idx = np.random.randint(len(self.test_dataset))
@@ -164,8 +167,8 @@ class Pipeline():
                 visualize_segmentation_Dice(test_image.cpu().numpy(), test_label.numpy(), test_pred, f'seg_{random_idx+1}',  dice_pred, patient_idx, folder=self.visualize)
             
         else:
-            #self.visualize_predictions()
-            self.save_predictions()
+            self.visualize_predictions()
+            #self.save_predictions() # for newsegmenter...
 
     def inference(self):
         self.model.eval()
@@ -192,11 +195,7 @@ class Pipeline():
 
             test_output = self.model(test_image)
             test_pred = torch.argmax(test_output, dim=1).squeeze().cpu().numpy()
-            """
-            pred_3d = np.clip(test_pred * 255, 0, 255).astype(np.uint8)
-            pred_3d = np.expand_dims(pred_3d, axis=2)
-            save_image_nifti(test_image_np, f'interpolated-{i}',self.visualize)
-            save_label_nifti(pred_3d, f'interpolated-{i}',self.visualize)"""
+
             test_image_np = test_image.squeeze().cpu().numpy()
 
             plt.figure(figsize=(10, 5))
@@ -221,13 +220,11 @@ class Pipeline():
         for i in range(len(images)):
             image = images[i]
             pred = predictions[i]
-            """
+            
             # To save the predicted labels as nifti files
-
-            pred_3d = np.clip(pred * 255, 0, 255).astype(np.uint8)
-            pred_3d = np.expand_dims(pred_3d, axis=2)
             save_image_nifti(image.squeeze(), f'interpolated-{i}',self.visualize)
-            save_label_nifti(pred_3d, f'interpolated-{i}',self.visualize)"""
+
+            save_label_nifti(pred.astype(np.int16), f'interpolated-{i}',self.visualize)
 
             plt.figure(figsize=(10, 5))
             plt.subplot(1, 2, 1)
@@ -244,20 +241,37 @@ class Pipeline():
             plt.close()
 
 
-def main():
+def main(visualize, outputs, load, training, artificialFIRST, artificialSEC, testing, batch_size=8, start_epochs=0, total_epochs=50, artificial_weight=0.5, has_labels=True):
     model = UNet(1, 4)
-    pipeline = Pipeline(model, visualize='NewSegmenter', outputs='newsegmenter', load='newsegmenter', original_images='../Training', artificial_images='../InterpolationSavedLabels', test_images='../Training', batch_size=8, start_epochs=0, total_epochs=100, artificial_weight=0.5, has_labels=True)
+    pipeline = Pipeline(
+        model, 
+        visualize=visualize, 
+        outputs=outputs, 
+        load=load, 
+        original_images=training,
+        artificialFIRST=artificialFIRST,
+        artificialSEC=artificialSEC,
+        test_images=testing,
+        batch_size=batch_size, 
+        start_epochs=start_epochs, 
+        total_epochs=total_epochs, 
+        artificial_weight=artificial_weight, 
+        has_labels=has_labels
+    )
+
     #pipeline.trainAndEval()
     pipeline.test()
 
-def main_different_weigth(training, artificialFIRST, artificialSEC, testing, load=''):
+def main_different_weigth(training, artificialFIRST, artificialSEC, testing, load='', has_labels=True, folder='NewSegmenterFOLDER'):
+    os.makedirs(folder, exist_ok=True)
+
     weights = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
     for weight in weights:
         model = UNet(1, 4)
         pipeline = Pipeline(
             model,
-            visualize=f'NewSegmenter_{weight}',
-            outputs=f'newsegmenter_{weight}',
+            visualize = os.path.join(folder, f'NewSegmenter_{weight}'),
+            outputs = os.path.join(folder, f'newsegmenter_{weight}'),
             load=load,
             original_images=training,
             artificialFIRST=artificialFIRST,
@@ -267,14 +281,49 @@ def main_different_weigth(training, artificialFIRST, artificialSEC, testing, loa
             start_epochs=0,
             total_epochs=100,
             artificial_weight=weight,
-            has_labels=True
+            has_labels=has_labels
         )
         pipeline.trainAndEval()
         pipeline.test()
 
 if __name__ == '__main__':
     training = '../Training'
-    artificialFIRST = '../InterpolationSavedLabelsEVENnoise'
-    artificialSEC = None
-    testing = '../Testing'
-    main_different_weigth(training, artificialFIRST, artificialSEC, training)
+    #testing = '../Testing'
+
+    # list of tuples (artificialFIRST, artificialSEC)
+
+    artificial = [
+        #('../InterpolationSavedLabelsEVENNEW', None, 'segEVENV2NEW'),
+        #('../InterpolationSavedLabelsODDNEW', '../InterpolationSavedLabelsEVENNEW', 'segEVENandODDV2NEW'),
+        ('../InterpolationSavedLabelsMultiNEW', None, 'segMULTIV2NEW'),
+        ('../InterpolationSavedLabelsEVENnoiseNEW', None, 'segEVENnoiseV2NEW'),
+    ]
+
+    for artificialFIRST, artificialSEC, folder in artificial:
+        main_different_weigth(training, artificialFIRST, artificialSEC, testing=training, has_labels=True, folder=folder)
+    
+
+    # Create new labels for interpolation
+    """testings = ['../InterpolatedImagesEVEN', '../InterpolatedImagesODD', '../InterpolatedImagesMulti', '../InterpolatedImagesEVENnoise']
+    visualizes = ['InterpolationSavedLabelsEVENNEW', 'InterpolationSavedLabelsODDNEW', 'InterpolationSavedLabelsMultiNEW', 'InterpolationSavedLabelsEVENnoiseNEW']
+    load ='segmentation'
+
+    for i in range(len(testings)):
+        print(f'Interpolating {testings[i]}')
+        print(f'Saving in {visualizes[i]}')
+        # create new labels for interpolation
+        main(
+            visualize= visualizes[i],
+            outputs='outputs',
+            load=load,
+            training=training,
+            artificialFIRST=None,
+            artificialSEC=None,
+            testing=testings[i], 
+            batch_size=8, 
+            start_epochs=0, 
+            total_epochs=100, 
+            artificial_weight=0.5, 
+            has_labels=False
+        )
+        """

@@ -34,7 +34,7 @@ def visualize_dice_scores(df):
     plt.title('Distribution des scores Dice par classe et par modèle')
     plt.savefig('dice_scores.png')
 
-def detailed_model_comparison(test_dataset):
+def detailed_model_comparison(test_dataset, folder):
     test_dataset = CustomDatasetWithLabelsFiltered(test_dataset, is_training=False)
     test_loader = DataLoader(test_dataset, batch_size=1)
 
@@ -46,9 +46,11 @@ def detailed_model_comparison(test_dataset):
     segmenter_model_instance.eval()
     models[segmenter_model_name] = segmenter_model_instance
 
+
+    #weights = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     weights = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
     for i in weights:
-        model_name = f'newsegmenter_{i}.pth'
+        model_name = f'{folder}/newsegmenter_{i}.pth'
         model_instance = UNet(1, 4).to(device)
         model_instance.load_state_dict(torch.load(model_name, map_location=device))
         model_instance.eval()
@@ -81,10 +83,10 @@ def detailed_model_comparison(test_dataset):
         sns.boxplot(x='Model', y=f'Dice_Class{cls}', data=df)
         plt.title(f'Distribution des scores Dice pour la classe {cls}')
         plt.xlabel('Model')
-        plt.ylabel(f'Dice Score Class {cls}')
+        plt.ylabel(f'{folder}/Dice Score Class {cls}')
         plt.xticks(rotation=65)
         plt.tight_layout()
-        plt.savefig(f'dice_scores_class{cls}.png')
+        plt.savefig(f'{folder}/dice_scores_class{cls}.png')
         plt.close()
 
     # visualize accuracy
@@ -95,10 +97,23 @@ def detailed_model_comparison(test_dataset):
     plt.ylabel('Accuracy')
     plt.xticks(rotation=65)
     plt.tight_layout()
-    plt.savefig('accuracies.png')
+    plt.savefig(f'{folder}/accuracies.png')
     plt.close()
 
 if __name__ == '__main__':
     test_dataset ='../Training'
-    detailed_model_comparison(test_dataset)
+
+    folder = [
+        'segEVENV2',
+        'segEVENandODDV2',
+        'segMULTIV2',
+        'segEVENnoiseV2',
+        'segEVENV1',
+        'segEVENandODDV1',
+        'segMULTIV1',
+        'segEVENnoiseV1'
+        ]
+    
+    for f in range(len(folder)):
+        detailed_model_comparison(test_dataset, folder[f])
 
