@@ -1,0 +1,5 @@
+        Model  min_min  min_max  min_base  max_min  max_max  max_base  min_diff_low  min_diff_high  max_diff_low  max_diff_high
+      segEVEN 0.876400 0.890202   0.88737 0.999968      1.0       1.0      0.010970       0.002832      0.000032            0.0
+segEVENandODD 0.856120 0.889030   0.88737 0.999935      1.0       1.0      0.031250       0.001660      0.000065            0.0
+     segMULTI 0.883138 0.889030   0.88737 0.999935      1.0       1.0      0.004232       0.001660      0.000065            0.0
+ segEVENnoise 0.883952 0.888770   0.88737 0.999968      1.0       1.0      0.003418       0.001400      0.000032            0.0

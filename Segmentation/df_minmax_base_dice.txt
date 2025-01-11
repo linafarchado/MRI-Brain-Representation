@@ -1,0 +1,5 @@
+     Classe  Base Min  Base Max
+0  Classe 0  0.998438       1.0
+1  Classe 1  0.972396       1.0
+2  Classe 2  0.891439       1.0
+3  Classe 3  0.903060       1.0

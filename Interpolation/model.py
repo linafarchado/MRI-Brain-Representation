@@ -77,6 +77,7 @@ class Pipeline:
         torch.save(self.model.state_dict(), f'{self.outputs}.pth')
     
     def test(self, noise_range=(-0.01, 0.01), noise=False):
+        print('noise: ', noise)
         test(self.load, self.test_dataset, self.model, self.device, noise_range, noise)
         #test_random_images(self.load, self.test_dataset, self.model, self.device)
 
@@ -106,10 +107,12 @@ def main(train_images, test_images=None, outputs='interpolation', load="", total
     if test_images is not None:
         if noise_range is not None:
             pipeline.test(noise_range=noise_range, noise=True)
-        pipeline.test()
+        else:
+            print(noise_range)
+            pipeline.test()
 
 if __name__ == '__main__':
     train_images = "../Training"
     test_images = "../Testing"
-    outputs = "noisyInterpolation"
-    main(train_images=train_images, test_images=test_images, outputs=outputs, total_epochs=100, batch_size=16, noise_range=(-0.01, 0.01))
+    outputs = "interpolation"
+    main(train_images=None, test_images=test_images, outputs=outputs, total_epochs=100, batch_size=16, noise_range=None)

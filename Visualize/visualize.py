@@ -299,3 +299,133 @@ def visualize_multi_interpolation(center_idx, dataset, alphas, interpolated_imag
     save_path = os.path.join(save_dir, f'interpolated_multi_images_{center_idx}.png')
     plt.savefig(save_path, bbox_inches='tight', dpi=300)
     plt.close()
+
+def visualize_multi_interpolation(center_idx, dataset, alphas, interpolated_image, model_name, save_dir='InterpolatedMultiImagesPlot'):
+    os.makedirs(save_dir, exist_ok=True)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    mse_loss = torch.nn.MSELoss()
+    psnr = PeakSignalNoiseRatio().to(device)
+
+    interpolation_indices = [center_idx-2, center_idx-1, center_idx+1, center_idx+2]
+    interpolation_indices = [idx for idx in interpolation_indices  if 0 <= idx < len(dataset)]
+    interpolation_images = [dataset[idx].unsqueeze(0) for idx in interpolation_indices]
+    
+    target_image = dataset[center_idx].unsqueeze(0)
+    mse_value = mse_loss(interpolated_image.to(device), target_image.to(device)).item()
+    psnr_value = psnr(interpolated_image.to(device), target_image.to(device)).item()
+    
+    diff_image = torch.abs(interpolated_image.to(device) - target_image.to(device)).squeeze().detach().cpu().numpy()
+
+    # Convert tensors to numpy arrays for visualization
+    interpolation_images_np = [img.squeeze().detach().cpu().numpy() for img in interpolation_images]
+    target_image_np = target_image.squeeze().detach().cpu().numpy()
+    interpolated_image_np = interpolated_image.squeeze().detach().cpu().numpy()
+
+    fig = plt.figure(figsize=(20, 10))
+    gs = gridspec.GridSpec(2, 4, height_ratios=[1, 1])
+
+    # Première ligne : images qu'on interpole
+    for i in range(4):
+        ax = plt.subplot(gs[0, i])
+        ax.imshow(interpolation_images_np[i], cmap='gray')
+        ax.set_title(f'Image {interpolation_indices[i]}\n alpha = {alphas[i]:.3f}', fontsize=12)
+        ax.axis('off')
+
+    # Deuxième ligne : image cible, interpolation, et image de différence
+    ax = plt.subplot(gs[1, 0:1])
+    ax.imshow(target_image_np, cmap='gray')
+    ax.set_title(f'Target Image {center_idx}', fontsize=12)
+    ax.axis('off')
+
+    # Image interpolée
+    ax = plt.subplot(gs[1, 1:2])
+    ax.imshow(interpolated_image_np, cmap='gray')
+    ax.set_title(f'Interpolated Image\n({model_name})', fontsize=12)
+    ax.axis('off')
+
+    # Image de différence
+    ax = plt.subplot(gs[1, 2:])
+    im = ax.imshow(diff_image, cmap='viridis')
+    ax.set_title(f'Difference Image\nMSE: {mse_value:.4f}, PSNR: {psnr_value:.2f}', fontsize=12)
+    ax.axis('off')
+    plt.colorbar(im, ax=ax)
+
+    # Ajuster la disposition
+    plt.tight_layout()
+
+    # Sauvegarder la figure
+    save_path = os.path.join(save_dir, f'interpolated_multi_images_{center_idx}.png')
+    plt.savefig(save_path, bbox_inches='tight', dpi=300)
+    plt.close()
+
+
+def visualize_two_images_interpolation(center_idx, dataset, alpha, interpolated_image, model_name, save_dir='InterpolatedMultiImagesPlot'):
+    os.makedirs(save_dir, exist_ok=True)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    mse_loss = torch.nn.MSELoss()
+    psnr = PeakSignalNoiseRatio().to(device)
+    
+    # Get only the two previous images and target
+    interpolation_indices = [center_idx-1, center_idx+1]
+    interpolation_indices = [idx for idx in interpolation_indices if 0 <= idx < len(dataset)]
+    interpolation_images = [dataset[idx].unsqueeze(0) for idx in interpolation_indices]
+    
+    target_image = dataset[center_idx].unsqueeze(0)
+    
+    # Calculate metrics
+    mse_value = mse_loss(interpolated_image.to(device), target_image.to(device)).item()
+    psnr_value = psnr(interpolated_image.to(device), target_image.to(device)).item()
+    
+    # Calculate difference image
+    diff_image = torch.abs(interpolated_image.to(device) - target_image.to(device)).squeeze().detach().cpu().numpy()
+    
+    # Convert tensors to numpy arrays
+    interpolation_images_np = [img.squeeze().detach().cpu().numpy() for img in interpolation_images]
+    target_image_np = target_image.squeeze().detach().cpu().numpy()
+    interpolated_image_np = interpolated_image.squeeze().detach().cpu().numpy()
+    
+    # Create figure with 2x3 grid
+    fig = plt.figure(figsize=(18, 10))
+    gs = gridspec.GridSpec(2, 3)
+    
+    # First row: input images
+    ax = plt.subplot(gs[0, 0])
+    ax.imshow(interpolation_images_np[0], cmap='gray')
+    ax.set_title(f'Image {interpolation_indices[0]}, alpha = {alpha}', fontsize=12)
+    ax.axis('off')
+
+    ax = plt.subplot(gs[0, 1])
+    ax.imshow(interpolation_images_np[1], cmap='gray')
+    ax.set_title(f'Image {interpolation_indices[1]}, alpha = {round(1-alpha, 2)}', fontsize=12)
+    ax.axis('off')
+    
+    # Keep third column of first row empty for visual balance
+    ax = plt.subplot(gs[0, 2])
+    ax.axis('off')
+    
+    # Second row: interpolated, target, and difference
+    ax = plt.subplot(gs[1, 0])
+    ax.imshow(interpolated_image_np, cmap='gray')
+    ax.set_title(f'Interpolated Image\n({model_name})', fontsize=12)
+    ax.axis('off')
+
+    ax = plt.subplot(gs[1, 1])
+    ax.imshow(target_image_np, cmap='gray')
+    ax.set_title(f'Target Image {center_idx}', fontsize=12)
+    ax.axis('off')
+    
+    # Difference image with metrics
+    ax = plt.subplot(gs[1, 2])
+    im = ax.imshow(diff_image, cmap='viridis')
+    ax.set_title(f'Difference Image\nMSE: {mse_value:.4f}\nPSNR: {psnr_value:.2f}', fontsize=12)
+    ax.axis('off')
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    
+    plt.tight_layout()
+    
+    # Save figure
+    save_path = os.path.join(save_dir, f'interpolated_two_images_{center_idx}.png')
+    plt.savefig(save_path, bbox_inches='tight', dpi=300)
+    plt.close()

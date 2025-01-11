@@ -1,0 +1,17 @@
+      Classe               Weight Description  Min Value  Max Value
+0   Classe 0  Smallest Min Weight: Weight 0.6   0.992773   0.999967
+1   Classe 0   Largest Min Weight: Weight 0.1   0.997428   1.000000
+2   Classe 0  Smallest Max Weight: Weight 0.6   0.992773   0.999967
+3   Classe 0   Largest Max Weight: Weight 0.5   0.996387   1.000000
+4   Classe 1  Smallest Min Weight: Weight 0.3   0.961654   1.000000
+5   Classe 1   Largest Min Weight: Weight 0.2   0.970638   0.999967
+6   Classe 1  Smallest Max Weight: Weight 0.6   0.966016   0.999967
+7   Classe 1   Largest Max Weight: Weight 0.7   0.967122   1.000000
+8   Classe 2  Smallest Min Weight: Weight 0.3   0.888542   1.000000
+9   Classe 2  Largest Min Weight: Weight 0.65   0.892904   1.000000
+10  Classe 2  Smallest Max Weight: Weight 0.3   0.888542   1.000000
+11  Classe 2   Largest Max Weight: Weight 0.3   0.888542   1.000000
+12  Classe 3  Smallest Min Weight: Weight 0.3   0.900553   1.000000
+13  Classe 3  Largest Min Weight: Weight 0.65   0.908431   1.000000
+14  Classe 3  Smallest Max Weight: Weight 0.3   0.900553   1.000000
+15  Classe 3   Largest Max Weight: Weight 0.3   0.900553   1.000000

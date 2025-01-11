@@ -156,14 +156,20 @@ def detailed_model_comparison(test_dataset, folder):
 if __name__ == '__main__':
     test_dataset = '../Training'
     folders = [
-        'segEVENV2',
-        'segEVENandODDV2',
-        'segMULTIV2',
-        'segEVENnoiseV2',
-        'segEVENV1',
-        'segEVENandODDV1',
-        'segMULTIV1',
-        'segEVENnoiseV1'
+        'segEVENV1NEW',
+        'segEVENandODDV1NEW',
+        'segMULTIV1NEW',
+        'segEVENnoiseV1NEW',
+
+        'segEVENV2NEW',
+        'segEVENandODDV2NEW',
+        'segMULTIV2NEW',
+        'segEVENnoiseV2NEW',
+        
+        'segEVENV3NEW',
+        'segEVENandODDV3NEW',
+        'segMULTIV3NEW',
+        'segEVENnoiseV3NEW',
     ]
     
     for folder in folders:

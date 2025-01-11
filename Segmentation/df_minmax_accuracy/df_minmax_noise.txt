@@ -1,0 +1,5 @@
+                Weight Description  Min Value  Max Value
+0  Smallest Min Weight: Weight 0.3   0.883952   1.000000
+1   Largest Min Weight: Weight 0.2   0.888770   0.999968
+2  Smallest Max Weight: Weight 0.6   0.884766   0.999968
+3   Largest Max Weight: Weight 0.3   0.883952   1.000000

@@ -7,30 +7,41 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from Utils import create_binary_mask
-from Dataloader import CustomDataset, CustomDatasetWithLabelsFiltered
+from Dataloader import CustomDataset, CustomDatasetWithLabelsFiltered, CustomDatasetWithLabelsFilteredShape
+from Visualize import visualize_image_without_label
 
 if __name__ == "__main__":
     
     folder_training = "../Training/"
-    folder_interpolated = "../NEWINTERPOLATIONSAVE"
+    folder_interpolated = "../InterpolationSavedLabelsEVEN"
 
-    # Chargement des datasets
-    dataset_training = CustomDatasetWithLabelsFiltered(folder_training, is_training=True)
-    interpolated_dataset = CustomDatasetWithLabelsFiltered(folder_interpolated, interpolation=True)
-    """print('Nombre d\'images dans les images d\'entraînement:', len(dataset_training))
-    print('Nombre d\'images dans les images interpolées:', len(interpolated_dataset))
+
+    # Chargement des datasets*
+    dataset_training = CustomDatasetWithLabelsFilteredShape(folder_training, is_training=True)
+    #interpolated_dataset = CustomDatasetWithLabelsFiltered(folder_interpolated, interpolation=True)
+    print('Nombre d\'images dans les images d\'entraînement:', len(dataset_training))
+
+    dataset_testing = CustomDatasetWithLabelsFilteredShape(folder_training, is_training=False)
+    print('Nombre d\'images dans les images de test:', len(dataset_testing))
+
+    
+
+    """print('Nombre d\'images dans les images interpolées:', len(interpolated_dataset))
     sum = len(dataset_training) + len(interpolated_dataset)
     print('Nombre total d\'images:', sum)
     print("training: ", 0.8 * sum)
     print("validation: ", 0.2 * sum)"""
-    
 
     # Récupération des pixels pour chaque dataset
+    """    
     training_pixels = dataset_training.get_all_pixels()
     interpolated_pixels = interpolated_dataset.get_all_pixels()
     print('Nombre de pixels dans les images d\'entraînement:', len(training_pixels))
     print('Nombre de pixels dans les images interpolées:', len(interpolated_pixels))
+    """
+    
 
+    """
     folder = "maskedInterpolatedImages"
     os.makedirs(folder, exist_ok=True)
 
@@ -61,7 +72,9 @@ if __name__ == "__main__":
 
     """
         
+    # Visualisation des histogrammes
 
+    """
     # Création des histogrammes
     plt.figure(figsize=(12, 6))
 
@@ -70,18 +83,16 @@ if __name__ == "__main__":
     plt.title("Histogramme des pixels - Images d'entraînement")
     plt.xlabel("Valeur du pixel")
     plt.ylabel("Fréquence (log)")
-    plt.xlim(0, 0.5)
 
     plt.subplot(1, 2, 2)
     plt.hist(interpolated_pixels, bins=256, color='green', alpha=0.7, log=True)
     plt.title("Histogramme des pixels - Images interpolées")
     plt.xlabel("Valeur du pixel")
     plt.ylabel("Fréquence (log)")
-    plt.xlim(0, 0.5)
     
     # Sauvegarde de la figure
     plt.tight_layout()
-    output_path = "histogrammes_pixels_log_NEWINTERPOLATION.png"
+    output_path = "histogrammes_pixels_log_test.png"
     plt.savefig(output_path)
     print(f"Les histogrammes ont été sauvegardés dans le fichier {output_path}")
     # Visualize pixel values
@@ -103,9 +114,11 @@ if __name__ == "__main__":
 
     # Sauvegarde de la figure au lieu de l'afficher
     plt.tight_layout()
-    output_path = "histogrammes_pixels_NEWINTERPOLATION.png"  # Chemin du fichier de sortie
+    output_path = "histogrammes_pixels_test.png"  # Chemin du fichier de sortie
     plt.savefig(output_path)
-    print(f"Les histogrammes ont été sauvegardés dans le fichier {output_path}")"""
+    print(f"Les histogrammes ont été sauvegardés dans le fichier {output_path}")
+    """
+
     """
     print(len(dataset))
     for i in range(120, 145):

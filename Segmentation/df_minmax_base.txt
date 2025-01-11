@@ -1,0 +1,2 @@
+   Base Min  Base Max
+0   0.88737       1.0

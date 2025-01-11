@@ -14,9 +14,9 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from Utils import save_image_nifti, add_latent_noise
-from Visualize import visualize_interpolation_even, visualize_interpolation, visualize_multi_interpolation
+from Visualize import visualize_interpolation_even, visualize_interpolation, visualize_multi_interpolation, visualize_two_images_interpolation
 
-# test of even images
+# test of even images range(2, len(dataset) - 2, 2) or odd range(1, len(dataset) - 1, 2)
 def test(load, dataset, model, device, noise_range=(-0.01, 0.01), noise=False):
     model.load_state_dict(torch.load(os.path.join(os.path.dirname(__file__), f'{load}.pth')))
     model.eval()
@@ -24,7 +24,7 @@ def test(load, dataset, model, device, noise_range=(-0.01, 0.01), noise=False):
     total_mse = 0
     count = 0
 
-    for i in tqdm(range(2, len(dataset) - 2, 2)):
+    for i in tqdm(range(1, len(dataset) - 1, 2)):
         if dataset.get_patient_idx(i) == dataset.get_patient_idx(i+2):
             img1 = dataset[i].to(device)
             img2 = dataset[i+1].to(device)
@@ -51,10 +51,11 @@ def test(load, dataset, model, device, noise_range=(-0.01, 0.01), noise=False):
                 interpolated_image = interpolated_image.squeeze(0)
             interpolated_image_np = interpolated_image.permute(1, 2, 0).detach().cpu().numpy()
 
-            save_image_nifti(interpolated_image_np, f'interpolated_{i}', f'{load}ImagesEVENnoise')
+            #save_image_nifti(interpolated_image_np, f'interpolated_{i}', f'{load}ImagesEVENnoise')
 
             # Visualisation
-            visualize_interpolation_even(i+1, dataset, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}PlotEVENnoise')
+            #visualize_interpolation_even(i+1, dataset, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}PlotEVENnoise')
+            visualize_two_images_interpolation(i+1, dataset, alpha, interpolated_image, model_name='ConvAutoencoder', save_dir=f'{load}PlotODDV2')
 
     avg_mse = total_mse / count if count > 0 else 0
     return avg_mse
